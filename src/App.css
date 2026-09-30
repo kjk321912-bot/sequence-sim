@@ -1,0 +1,120 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.app-header h1 {
+  margin: 0 8px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.badge.ok {
+  color: var(--wire-flow);
+}
+
+.badge.off {
+  color: var(--warn);
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  min-height: 0;
+}
+
+.panel {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  overflow: auto;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.panel p {
+  margin: 0 0 16px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.panel dt {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.panel dd {
+  margin: 2px 0 12px;
+}
+
+.panel dd.big {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.touch-area {
+  position: relative;
+  flex: 1;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background-image: radial-gradient(var(--line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  touch-action: none;
+}
+
+.touch-area svg {
+  position: absolute;
+  inset: 0;
+}
+
+.hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.dot-touch { fill: var(--accent); }
+.dot-pen { fill: var(--wire-flow); }
+.dot-mouse { fill: var(--wire-live); }
+.ring-touch, .ring-pen, .ring-mouse { fill: none; stroke-width: 3; }
+.ring-touch { stroke: var(--accent); }
+.ring-pen { stroke: var(--wire-flow); }
+.ring-mouse { stroke: var(--wire-live); }
+
+@media (max-width: 700px) {
+  .app-main { flex-direction: column; }
+  .panel { width: auto; }
+}
