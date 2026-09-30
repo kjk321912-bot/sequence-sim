@@ -8,3 +8,6 @@ dev-dist
 !.vscode/extensions.json
 .idea
 coverage
+
+# 참고 자료 (저작권: 한국산업인력공단, 공개 저장소에 올리지 않음)
+전기기능사/

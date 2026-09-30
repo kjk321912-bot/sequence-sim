@@ -98,9 +98,9 @@ export const PALETTE: PaletteItem[] = [
   { key: 'WL', name: '백색등 WL', group: '출력', make: lamp('WL') },
   { key: 'bz', name: '부저 BZ', group: '출력', make: (c) => ({ kind: 'buzzer', tag: tagsOf(c).includes('BZ') ? nextTag(c, 'BZ') : 'BZ' }) },
 
-  { key: 'busR', name: 'R상', group: '주회로', make: bus('R') },
-  { key: 'busS', name: 'S상', group: '주회로', make: bus('S') },
-  { key: 'busT', name: 'T상', group: '주회로', make: bus('T') },
+  { key: 'busR', name: 'L1상', group: '주회로', make: bus('R') },
+  { key: 'busS', name: 'L2상', group: '주회로', make: bus('S') },
+  { key: 'busT', name: 'L3상', group: '주회로', make: bus('T') },
   { key: 'mccb', name: 'MCCB', group: '주회로', make: (c) => ({ kind: 'mccb', tag: tagsOf(c).includes('MCCB') ? nextTag(c, 'MCCB') : 'MCCB' }) },
   { key: 'mcMain', name: 'MC 주접점', group: '주회로', make: (c) => ({ kind: 'mcMain', tag: latestTag(c, 'MC') }) },
   { key: 'thrHeater', name: 'THR 히터', group: '주회로', make: (c) => ({ kind: 'thrHeater', tag: nextTag(c, 'THR'), tripTime: 5000 }) },
