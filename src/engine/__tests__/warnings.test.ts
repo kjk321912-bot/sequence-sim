@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Simulator } from '../scan'
+import { contactActivity, Simulator } from '../scan'
 import { a, bc, BOTTOM, click, controlBoard, selfHoldRung, TOP } from './helpers'
 
 describe('단락', () => {
@@ -51,5 +51,29 @@ describe('부하 직렬 연결', () => {
     const sim = new Simulator(b.build())
     expect(sim.last.solution.energized[l1!.id]).toBe(false)
     expect(sim.last.solution.energized[l2!.id]).toBe(false)
+    expect(sim.last.solution.seriesLoads).toEqual([l1!.id, l2!.id])
+  })
+
+  it('정상 회로와 배선 안 된 부하는 직렬 경고를 내지 않는다', () => {
+    const b = controlBoard()
+    b.rung(2, TOP, BOTTOM, [a(b, 'pb', 'PB1'), (x, y) => b.lamp(x, y, 'RL')])
+    b.lamp(10, 4, 'GL') // 어디에도 연결되지 않은 램프
+    const sim = new Simulator(b.build())
+    expect(sim.last.solution.seriesLoads).toEqual([])
+    sim.act({ type: 'press', tag: 'PB1' })
+    expect(sim.last.solution.seriesLoads).toEqual([])
+  })
+})
+
+describe('표시용 접점 동작', () => {
+  it('접촉 불량 고장이 있어도 접점 막대는 정상처럼 움직인다', () => {
+    const b = controlBoard()
+    const [pb] = b.rung(2, TOP, BOTTOM, [a(b, 'pb', 'PB1'), (x, y) => b.lamp(x, y, 'RL')])
+    const c = b.build()
+    c.faults = [{ kind: 'contactOpen', compId: pb!.id }]
+    const sim = new Simulator(c)
+    sim.act({ type: 'press', tag: 'PB1' })
+    expect(contactActivity(c, sim.state)[pb!.id]).toBe(true)
+    expect(sim.last.solution.closed[pb!.id]).toEqual([false])
   })
 })

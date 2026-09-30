@@ -1,12 +1,14 @@
 // 팔레트 아이콘용 부품 기호 렌더러 (캔버스와 같은 기호 정의 사용)
 import type { Component } from '../engine'
 import { colors } from '../ui/theme'
-import { symbolOf } from './defs'
+import { placedPrims, symbolOf } from './defs'
 
 const U = 20 // 격자 1칸 = 20 SVG 단위
 
 export function SvgSymbol({ comp, size = 48 }: { comp: Component; size?: number }) {
-  const { prims, box } = symbolOf(comp)
+  const def = symbolOf(comp)
+  const { box } = def
+  const prims = placedPrims(def)
   const pad = 0.3
   const x = (box.x0 - pad) * U
   const y = (box.y0 - pad) * U

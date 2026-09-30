@@ -4,12 +4,13 @@ import { emptyCircuit } from '../engine'
 import { fitView, getCanvasRect, zoomAt } from '../editor/viewMath'
 import { showcaseCircuit } from '../examples/showcase'
 import { useEditor } from '../store/editorStore'
+import { useSim, type Mode } from '../store/simStore'
 import { openFromFile, saveToFile } from './fileActions'
 import { Icon, type IconName } from './Icon'
 
 const MODES = [
   { key: 'edit', label: '편집', ready: true },
-  { key: 'run', label: '실행', ready: false },
+  { key: 'run', label: '실행', ready: true },
   { key: 'task', label: '과제', ready: false },
   { key: 'fault', label: '고장진단', ready: false },
 ] as const
@@ -35,6 +36,7 @@ export function Toolbar() {
   const tool = useEditor((s) => s.tool)
   const canUndo = useEditor((s) => s.past.length > 0)
   const canRedo = useEditor((s) => s.future.length > 0)
+  const mode = useSim((s) => s.mode)
   const { setTool, undo, redo } = useEditor.getState()
 
   return (
@@ -49,23 +51,34 @@ export function Toolbar() {
 
       <nav className="modes" aria-label="모드">
         {MODES.map((m) => (
-          <button key={m.key} className={m.key === 'edit' ? 'on' : ''} disabled={!m.ready} title={m.ready ? m.label : `${m.label} (준비 중)`}>
+          <button
+            key={m.key}
+            className={m.key === mode ? 'on' : ''}
+            disabled={!m.ready}
+            aria-pressed={m.key === mode}
+            title={m.ready ? m.label : `${m.label} (준비 중)`}
+            onClick={() => m.ready && useSim.getState().setMode(m.key as Mode)}
+          >
             {m.label}
           </button>
         ))}
       </nav>
 
       <div className="tools">
-        <button
-          className={`toggle ${tool === 'wire' ? 'on' : ''}`}
-          onClick={() => setTool(tool === 'wire' ? 'select' : 'wire')}
-          title="배선 도구 (W): 켜면 손가락으로도 배선. S펜·마우스는 핀에서 바로 그을 수 있음"
-          aria-pressed={tool === 'wire'}
-        >
-          <Icon name="wire" />
-          <span>배선</span>
-        </button>
-        <span className="sep" />
+        {mode === 'edit' && (
+          <>
+            <button
+              className={`toggle ${tool === 'wire' ? 'on' : ''}`}
+              onClick={() => setTool(tool === 'wire' ? 'select' : 'wire')}
+              title="배선 도구 (W): 켜면 손가락으로도 배선. S펜·마우스는 핀에서 바로 그을 수 있음"
+              aria-pressed={tool === 'wire'}
+            >
+              <Icon name="wire" />
+              <span>배선</span>
+            </button>
+            <span className="sep" />
+          </>
+        )}
         <button onClick={undo} disabled={!canUndo} title="되돌리기 (Ctrl+Z)" aria-label="되돌리기">
           <Icon name="undo" />
         </button>

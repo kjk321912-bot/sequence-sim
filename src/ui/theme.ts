@@ -21,6 +21,7 @@ export const colors = {
   wireDead: '#5b6776', // 무전압
   wireLive: '#d9a93c', // 활선: 전위만 있음
   wireFlow: '#4ade80', // 통전: 전류 흐름
+  flowDash: '#e8fff0', // 통전 배선 위를 흘러가는 전류 표시
   danger: '#ff4d4f', // 단락·고장
   warn: '#fbbf24', // 발진·결상 경고
 

@@ -1,9 +1,12 @@
-// 회로 캔버스: 격자 · 배선 · 부품 레이어
+// 회로 캔버스: 격자 · 배선 · 부품 레이어 (실행 모드에서는 상태색·애니메이션 레이어가 더해진다)
 import type Konva from 'konva'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Layer, Line, Shape, Stage } from 'react-konva'
 import { buildGraph, pinsOf, type Circuit, type Point } from '../engine'
+import { AnimLayer, RunLabels, RunWires } from '../modes/run/RunLayers'
+import { visualsOf } from '../modes/run/visuals'
 import { useEditor, type View } from '../store/editorStore'
+import { useSim } from '../store/simStore'
 import { KonvaSymbol } from '../symbols/KonvaSymbol'
 import { colors, GRID } from '../ui/theme'
 import { useCanvasGestures } from './useCanvasGestures'
@@ -18,7 +21,12 @@ export function EditorCanvas() {
   const selection = useEditor((s) => s.selection)
   const tool = useEditor((s) => s.tool)
   const draftWire = useEditor((s) => s.draftWire)
-  const wiring = tool === 'wire' || !!draftWire
+  const running = useSim((s) => s.mode === 'run')
+  const result = useSim((s) => s.result)
+  const run = running && result ? result : null
+  const wiring = !run && (tool === 'wire' || !!draftWire)
+  const visuals = useMemo(() => (run ? visualsOf(circuit, run) : null), [circuit, run])
+  const junctions = useMemo(() => junctionPoints(circuit), [circuit])
 
   // 캔버스 크기 추적
   useEffect(() => {
@@ -47,7 +55,7 @@ export function EditorCanvas() {
   useCanvasGestures(wrapRef, stageRef)
 
   return (
-    <div ref={wrapRef} className={`canvas-wrap ${tool === 'wire' ? 'wire-tool' : ''}`}>
+    <div ref={wrapRef} className={`canvas-wrap ${run ? 'run' : tool === 'wire' ? 'wire-tool' : ''}`}>
       {size.width > 0 && (
         <Stage
           ref={stageRef}
@@ -62,17 +70,30 @@ export function EditorCanvas() {
             <Grid view={view} width={size.width} height={size.height} />
           </Layer>
           <Layer>
-            <Wires circuit={circuit} selection={selection} />
+            {run ? (
+              <RunWires circuit={circuit} result={run} junctions={junctions} />
+            ) : (
+              <Wires circuit={circuit} selection={selection} junctions={junctions} />
+            )}
           </Layer>
           <Layer>
             {circuit.components.map((c) => (
-              <KonvaSymbol key={c.id} comp={c} selected={c.id === selection} />
+              <KonvaSymbol key={c.id} comp={c} visual={visuals?.[c.id]} selected={c.id === selection} />
             ))}
           </Layer>
-          <Layer listening={false}>
-            {wiring && <PinDots circuit={circuit} />}
-            {draftWire && <DraftWire points={draftWire} />}
-          </Layer>
+          {run ? (
+            <>
+              <Layer listening={false}>
+                <RunLabels circuit={circuit} result={run} />
+              </Layer>
+              <AnimLayer circuit={circuit} result={run} />
+            </>
+          ) : (
+            <Layer listening={false}>
+              {wiring && <PinDots circuit={circuit} />}
+              {draftWire && <DraftWire points={draftWire} />}
+            </Layer>
+          )}
         </Stage>
       )}
     </div>
@@ -104,24 +125,24 @@ function Grid({ view, width, height }: { view: View; width: number; height: numb
   )
 }
 
-/** 배선 + 접속점(●). 배선은 눌러서 선택할 수 있다 */
-function Wires({ circuit, selection }: { circuit: Circuit; selection: string | null }) {
-  const junctions = useMemo(() => {
-    // 배선·핀·모선이 3개 이상 만나는 점에 접속점
-    const g = buildGraph(circuit)
-    const degree = new Array<number>(g.nodeCount).fill(0)
-    for (const e of g.edges) {
-      if (e.kind === 'wire') {
-        degree[e.a]!++
-        degree[e.b]!++
-      } else {
-        degree[e.b]!++ // 모선 연결은 점 쪽만
-      }
+/** 배선·핀·모선이 3개 이상 만나는 점 (접속점 ● 자리) */
+function junctionPoints(circuit: Circuit): Point[] {
+  const g = buildGraph(circuit)
+  const degree = new Array<number>(g.nodeCount).fill(0)
+  for (const e of g.edges) {
+    if (e.kind === 'wire') {
+      degree[e.a]!++
+      degree[e.b]!++
+    } else {
+      degree[e.b]!++ // 모선 연결은 점 쪽만
     }
-    for (const n of g.terminals.values()) degree[n]!++
-    return g.nodePoints.flatMap((p, i) => (p && degree[i]! >= 3 ? [p] : []))
-  }, [circuit])
+  }
+  for (const n of g.terminals.values()) degree[n]!++
+  return g.nodePoints.flatMap((p, i) => (p && degree[i]! >= 3 ? [p] : []))
+}
 
+/** 배선 + 접속점(●). 배선은 눌러서 선택할 수 있다 */
+function Wires({ circuit, selection, junctions }: { circuit: Circuit; selection: string | null; junctions: Point[] }) {
   return (
     <>
       {circuit.wires.map((w) => {

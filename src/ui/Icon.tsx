@@ -14,6 +14,9 @@ const PATHS = {
   save: 'M12 4v11M7 10l5 5l5-5M5 20h14',
   open: 'M12 20V9M7 14l5-5l5 5M5 4h14',
   edit: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
+  play: 'M7 4v16l13-8z',
+  pause: 'M7 4v16M17 4v16',
+  restart: 'M4 12a8 8 0 1 0 2.3-5.7M4 4v5h5',
 } as const
 
 export type IconName = keyof typeof PATHS

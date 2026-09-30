@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import './App.css'
 import { EditorCanvas } from './editor/EditorCanvas'
+import { RunBanner, RunControls } from './modes/run/RunControls'
 import { useEditor } from './store/editorStore'
+import { useSim } from './store/simStore'
 import { Palette } from './ui/Palette'
 import { PropertyPanel } from './ui/PropertyPanel'
 import { Toast } from './ui/Toast'
@@ -9,13 +11,16 @@ import { Toolbar } from './ui/Toolbar'
 
 export default function App() {
   useKeyboardShortcuts()
+  const running = useSim((s) => s.mode === 'run')
   return (
     <div className="app">
       <Toolbar />
       <main className="workspace">
-        <Palette />
+        {!running && <Palette />}
         <div className="canvas-area">
           <EditorCanvas />
+          {running && <RunControls />}
+          {running && <RunBanner />}
           <PropertyPanel />
         </div>
       </main>
@@ -26,7 +31,7 @@ export default function App() {
 
 /**
  * PC 키보드 단축키 (한글 자판 상태에서도 동작하도록 e.code로 판별)
- *   R 회전, W 배선 도구, Delete/Backspace 삭제, Esc 선택 해제·배선 도구 끄기,
+ *   R 회전, W 배선 도구(편집), Space 재생·일시정지(실행), Delete/Backspace 삭제, Esc 선택 해제·배선 도구 끄기,
  *   Ctrl+Z 되돌리기, Ctrl+Y / Ctrl+Shift+Z 다시하기
  */
 function useKeyboardShortcuts() {
@@ -34,6 +39,7 @@ function useKeyboardShortcuts() {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       const s = useEditor.getState()
+      const sim = useSim.getState()
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.code === 'KeyZ') {
         e.preventDefault()
@@ -44,8 +50,11 @@ function useKeyboardShortcuts() {
         s.redo()
       } else if (mod) {
         return
+      } else if (e.code === 'Space' && sim.mode === 'run') {
+        e.preventDefault()
+        sim.setPaused(!sim.paused)
       } else if (e.code === 'KeyR') s.rotateSelected()
-      else if (e.code === 'KeyW') s.setTool(s.tool === 'wire' ? 'select' : 'wire')
+      else if (e.code === 'KeyW' && sim.mode === 'edit') s.setTool(s.tool === 'wire' ? 'select' : 'wire')
       else if (e.key === 'Delete' || e.key === 'Backspace') s.deleteSelected()
       else if (e.key === 'Escape') {
         s.select(null)

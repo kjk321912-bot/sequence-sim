@@ -83,6 +83,20 @@ function deviceActive(ix: Index, s: SimState, device: ContactDevice, tag: string
   }
 }
 
+/**
+ * 화면 표시용: 접점마다 "장치가 동작 중인가"를 구한다 (부품 id → 동작 여부).
+ * 고장(접촉 불량·융착)은 반영하지 않는다. 겉보기에는 정상으로 움직이는데
+ * 전기가 통하지 않는 것을 테스터로 찾는 것이 고장진단 실습이기 때문이다.
+ */
+export function contactActivity(circuit: Circuit, s: SimState): Record<string, boolean> {
+  const ix = buildIndex(circuit)
+  const out: Record<string, boolean> = {}
+  for (const c of circuit.components) {
+    if (c.kind === 'contact') out[c.id] = deviceActive(ix, s, c.device, c.tag)
+  }
+  return out
+}
+
 /** 도체 부품의 극별 닫힘 여부 (고장 반영) */
 function poleStates(ix: Index, s: SimState, c: Component): boolean[] {
   let states: boolean[]

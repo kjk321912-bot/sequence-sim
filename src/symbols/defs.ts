@@ -14,10 +14,11 @@
 import type { Component, ContactComp, MotorRun } from '../engine'
 import { colors } from '../ui/theme'
 
+/** move: 접점 가동부(막대)에 붙은 도형. 좌표는 막대 위치 x=0 기준이고 SymbolDef.bar만큼 옮겨 그린다 */
 export type Prim =
-  | { t: 'line'; pts: number[]; dash?: boolean; w?: number; closed?: boolean; color?: string; fill?: string }
-  | { t: 'circle'; x: number; y: number; r: number; w?: number; color?: string; fill?: string; glow?: string }
-  | { t: 'text'; x: number; y: number; text: string; size: number; align: 'left' | 'center'; color?: string; bold?: boolean }
+  | { t: 'line'; pts: number[]; dash?: boolean; w?: number; closed?: boolean; color?: string; fill?: string; move?: boolean }
+  | { t: 'circle'; x: number; y: number; r: number; w?: number; color?: string; fill?: string; glow?: string; move?: boolean }
+  | { t: 'text'; x: number; y: number; text: string; size: number; align: 'left' | 'center'; color?: string; bold?: boolean; move?: boolean }
 
 export interface Box {
   x0: number
@@ -30,12 +31,22 @@ export interface SymbolDef {
   prims: Prim[]
   /** 선택 표시·터치 판정용 영역 (회전 전) */
   box: Box
+  /** 접점 가동 막대의 가로 위치 (barOffset). 실행 모드에서 이 값으로 막대를 밀어 움직인다 */
+  bar?: number
 }
 
 /** 실행 모드에서 기호 모양을 바꾸는 상태 */
 export interface SymbolVisual {
   /** 접점을 움직이는 장치가 동작 중 (a접점 닫힘 / b접점 열림) */
   active?: boolean
+  /** 막대 위치를 직접 지정 (전환 애니메이션 중간값) */
+  bar?: number
+  /** 도체 부품(접점·퓨즈·차단기 등)에 전류가 흐름 → 통전색 */
+  conducting?: boolean
+  /** 발진 중인 코일, 트립된 보호계전기 등 → 경고색 */
+  warn?: boolean
+  /** 회전 날개를 애니메이션 레이어에서 따로 그린다 */
+  hideFins?: boolean
   /** 코일·부저 여자, 램프 점등 */
   energized?: boolean
   motor?: MotorRun
@@ -94,43 +105,45 @@ function terminals(prims: Prim[], ox: number, color?: string) {
 function contact(c: ContactComp, v: SymbolVisual): SymbolDef {
   const prims: Prim[] = []
   terminals(prims, 0)
-  const bx = barOffset(c.type, !!v.active)
+  const bx = v.bar ?? barOffset(c.type, !!v.active)
   const top = T1 - 0.15
   const bot = T2 + 0.15
   const mid = (T1 + T2) / 2
-  /** 막대 오른쪽으로 가장 멀리 뻗은 곳 (이름표 위치 계산용) */
-  let reach = bx
+  /** 가동 접점(막대와 조작부 표시)은 막대 위치 x=0 기준으로 그리고 def.bar만큼 옮긴다 */
+  const move = (p: Prim) => prims.push({ ...p, move: true } as Prim)
+  /** 막대 오른쪽으로 뻗은 길이 (이름표 위치 계산용) */
+  let reach = 0
 
   if (c.device === 'limit') {
     // 리밋 스위치: 가는 직사각형 막대
-    prims.push({ t: 'line', pts: [bx - 0.06, top, bx + 0.06, top, bx + 0.06, bot, bx - 0.06, bot], closed: true, w: 1.6 })
-    reach = bx + 0.06
+    move({ t: 'line', pts: [-0.06, top, 0.06, top, 0.06, bot, -0.06, bot], closed: true, w: 1.6 })
+    reach = 0.06
   } else {
-    prims.push({ t: 'line', pts: [bx, top, bx, bot], w: 2.2 })
+    move({ t: 'line', pts: [0, top, 0, bot], w: 2.2 })
   }
 
   switch (c.device) {
     case 'pb': // 누름버튼: 막대에서 오른쪽으로 뻗은 가지 ├
-      prims.push({ t: 'line', pts: [bx, mid, bx + 0.3, mid] })
-      reach = bx + 0.3
+      move({ t: 'line', pts: [0, mid, 0.3, mid] })
+      reach = 0.3
       break
     case 'selector': // 셀렉터: 가지 끝이 위로 꺾임
-      prims.push({ t: 'line', pts: [bx, mid, bx + 0.28, mid, bx + 0.18, mid - 0.12] })
-      reach = bx + 0.28
+      move({ t: 'line', pts: [0, mid, 0.28, mid, 0.18, mid - 0.12] })
+      reach = 0.28
       break
     case 'timer': // 한시접점: 막대 오른쪽의 ＞
-      prims.push({ t: 'line', pts: [bx + 0.03, mid - 0.14, bx + 0.22, mid, bx + 0.03, mid + 0.14] })
-      reach = bx + 0.22
+      move({ t: 'line', pts: [0.03, mid - 0.14, 0.22, mid, 0.03, mid + 0.14] })
+      reach = 0.22
       break
     case 'thr': // 보호계전기(THR·EOCR) 접점: 막대 위의 ×
     case 'eocr':
-      prims.push({ t: 'line', pts: [bx - 0.12, mid - 0.12, bx + 0.12, mid + 0.12] })
-      prims.push({ t: 'line', pts: [bx - 0.12, mid + 0.12, bx + 0.12, mid - 0.12] })
-      reach = bx + 0.12
+      move({ t: 'line', pts: [-0.12, mid - 0.12, 0.12, mid + 0.12] })
+      move({ t: 'line', pts: [-0.12, mid + 0.12, 0.12, mid - 0.12] })
+      reach = 0.12
       break
     case 'flicker': // 플리커릴레이 접점: 막대 위의 채운 마름모 ◆
-      prims.push({ t: 'line', pts: [bx, mid - 0.16, bx + 0.13, mid, bx, mid + 0.16, bx - 0.13, mid], closed: true, fill: colors.symbol })
-      reach = bx + 0.13
+      move({ t: 'line', pts: [0, mid - 0.16, 0.13, mid, 0, mid + 0.16, -0.13, mid], closed: true, fill: colors.symbol })
+      reach = 0.13
       break
     case 'limit':
     case 'relay':
@@ -141,14 +154,28 @@ function contact(c: ContactComp, v: SymbolVisual): SymbolDef {
       break
   }
   // 이름표는 a접점 기준 위치에 고정 (동작해도 글자가 흔들리지 않게)
-  const lx = Math.max(reach, c.type === 'a' ? barOffset('a', false) : 0.15) + 0.22
+  const lx = Math.max(barOffset(c.type, false) + reach, 0.15) + 0.22
   prims.push(label(lx, mid, c.tag))
-  return { prims, box: { x0: -0.6, y0: 0, x1: lx + textWidth(c.tag, LABEL) + 0.1, y1: 3 } }
+  return { prims, bar: bx, box: { x0: -0.6, y0: 0, x1: lx + textWidth(c.tag, LABEL) + 0.1, y1: 3 } }
+}
+
+/** 가동 접점 도형을 막대 위치(def.bar)만큼 옮겨 한 목록으로 (SVG 아이콘·정적 그리기용) */
+export function placedPrims(def: SymbolDef): Prim[] {
+  const dx = def.bar ?? 0
+  if (!dx) return def.prims
+  return def.prims.map((p) => {
+    if (!p.move) return p
+    if (p.t === 'line') return { ...p, pts: p.pts.map((v, i) => (i % 2 === 0 ? v + dx : v)) }
+    if (p.t === 'circle') return { ...p, x: p.x + dx }
+    return p
+  })
 }
 
 // ─── 코일·부하 ──────────────────────────────────────────
 
-const COIL_R = 0.62
+export const COIL_R = 0.62
+/** 전동기 원의 중심·반지름 (격자 단위, 회전 전) */
+export const MOTOR_C = { x: 2, y: 2.9, r: 1.2 }
 
 function innerTextSize(s: string) {
   return s.length <= 2 ? 0.55 : s.length === 3 ? 0.44 : 0.34
@@ -253,9 +280,9 @@ function motor(tag: string, v: SymbolVisual): SymbolDef {
   const run = v.motor ?? 'stop'
   const spinning = run === 'fwd' || run === 'rev'
   const color = spinning ? colors.wireFlow : run === 'singlePhase' ? colors.warn : undefined
-  const cx = 2
-  const cy = 2.9
-  const r = 1.2
+  const cx = MOTOR_C.x
+  const cy = MOTOR_C.y
+  const r = MOTOR_C.r
   const d = r * Math.SQRT1_2
   const prims: Prim[] = [
     // U·V·W 선이 전동기 원으로 모여 들어간다
@@ -265,7 +292,7 @@ function motor(tag: string, v: SymbolVisual): SymbolDef {
     { t: 'circle', x: cx, y: cy, r, w: 2.5, color, fill: colors.bg, ...(spinning ? { glow: colors.wireFlow } : {}) },
     { t: 'text', x: cx, y: cy, text: tag, size: tag.length <= 2 ? 0.8 : 0.6, align: 'center', color: color ?? colors.symbol, bold: true },
   ]
-  if (spinning || v.motorAngle !== undefined) {
+  if (!v.hideFins && (spinning || v.motorAngle !== undefined)) {
     // 회전 표시: 원 둘레의 날개 3개
     const base = v.motorAngle ?? 0
     for (let k = 0; k < 3; k++) {
@@ -283,6 +310,18 @@ export const PHASE_LABEL = { P: 'P', N: 'N', R: 'L1', S: 'L2', T: 'L3' } as cons
 // ─── 진입점 ────────────────────────────────────────────
 
 export function symbolOf(c: Component, v: SymbolVisual = {}): SymbolDef {
+  const def = baseSymbol(c, v)
+  // 전류가 흐르는 도체 부품(접점·퓨즈·차단기…)과 경고 상태 부품은 선 색을 바꾼다.
+  // 색이 따로 정해진 도형(용단 표시 등)은 그대로 둔다.
+  const tint = v.warn && c.kind !== 'coil' ? colors.danger : v.conducting ? colors.wireFlow : null
+  if (!tint) return def
+  return {
+    ...def,
+    prims: def.prims.map((p) => (p.t === 'text' || p.color ? p : { ...p, color: tint })),
+  }
+}
+
+function baseSymbol(c: Component, v: SymbolVisual): SymbolDef {
   switch (c.kind) {
     case 'bus': {
       const color = BUS_COLOR[c.phase]
@@ -311,7 +350,7 @@ export function symbolOf(c: Component, v: SymbolVisual = {}): SymbolDef {
                 : null
       const on = !!v.energized
       return circleSymbol(c.tag, {
-        ...(on ? { stroke: colors.wireFlow, glow: colors.wireFlow, textColor: colors.wireFlow } : {}),
+        ...(v.warn ? { stroke: colors.warn, glow: colors.warn, textColor: colors.warn } : on ? { stroke: colors.wireFlow, glow: colors.wireFlow, textColor: colors.wireFlow } : {}),
         side,
       })
     }

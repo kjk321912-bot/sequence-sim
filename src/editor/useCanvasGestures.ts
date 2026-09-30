@@ -6,11 +6,17 @@
 //             (툴바의 배선 도구를 켜면 손가락으로도 배선)
 //   공통      톡 치기 → 선택, 길게 누르기 → 선택(속성 창) + 진동
 //   마우스 휠 → 커서 위치 기준 줌
+//
+//   실행 모드  푸시버튼은 누르는 동안 동작(여러 손가락으로 동시에 누를 수 있음),
+//             셀렉터·리밋·MCCB·보호계전기·퓨즈는 톡 칠 때마다 조작, 끌면 화면 이동.
+//             길게 누르기 → 선택(속성 창)으로 설정값을 바꿀 수 있다.
 
 import type Konva from 'konva'
 import { useEffect, type RefObject } from 'react'
-import type { Circuit, Point } from '../engine'
+import type { Action, Circuit, Point } from '../engine'
+import { operationOf } from '../modes/run/operate'
 import { useEditor } from '../store/editorStore'
+import { liveResult, useSim } from '../store/simStore'
 import { GRID } from '../ui/theme'
 import { clampScale, screenToGrid, zoomAt } from './viewMath'
 import { chooseRoute, snapPoint, type Snap } from './wiring'
@@ -28,7 +34,7 @@ interface Hit {
 
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'pending'; id: number; sx: number; sy: number; hit: Hit; wireStart: Snap | null }
+  | { kind: 'pending'; id: number; sx: number; sy: number; hit: Hit; wireStart: Snap | null; tap: Action | null }
   | { kind: 'held'; id: number } // 길게 눌러 선택한 뒤 손을 뗄 때까지
   | { kind: 'drag'; id: number; compId: string; base: Circuit; sx: number; sy: number; ox: number; oy: number }
   | { kind: 'wire'; id: number; from: Point; preferVertical: boolean; route: Point[] }
@@ -46,6 +52,8 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
     const el = container.current
     if (!el) return
     const ptrs = new Map<number, Ptr>()
+    /** 실행 모드에서 누르고 있는 푸시버튼 (포인터 id → 번호) */
+    const pressed = new Map<number, string>()
     let mode: Mode = { kind: 'idle' }
     let longTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -89,6 +97,25 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
       if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return
       el.setPointerCapture(e.pointerId)
       const p = local(e)
+      const store = useEditor.getState()
+      const running = useSim.getState().mode === 'run'
+
+      // 실행 모드: 푸시버튼은 다른 손가락과 상관없이 바로 누른다 (화면 이동·핀치에 끼지 않음)
+      let tap: Action | null = null
+      if (running && e.button === 0) {
+        const hitComp = hitTest(p.x, p.y).compId
+        const comp = store.circuit.components.find((c) => c.id === hitComp)
+        const live = liveResult()
+        const op = comp && live ? operationOf(comp, live.state) : null
+        if (op?.kind === 'momentary') {
+          pressed.set(e.pointerId, op.tag)
+          useSim.getState().act({ type: 'press', tag: op.tag })
+          navigator.vibrate?.(10)
+          return
+        }
+        tap = op?.kind === 'tap' ? op.action : null
+      }
+
       ptrs.set(e.pointerId, { ...p, type: e.pointerType })
 
       if (ptrs.size === 2 && e.pointerType === 'touch') {
@@ -98,7 +125,6 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
       }
       if (ptrs.size > 1) return
 
-      const store = useEditor.getState()
       const hit: Hit = e.button === 1 ? { compId: null, wireId: null } : hitTest(p.x, p.y)
       const g = screenToGrid(store.view, p.x, p.y)
       const radius = (SNAP_PX[e.pointerType] ?? 14) / (GRID * store.view.scale)
@@ -106,12 +132,12 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
 
       // 배선을 시작하는가
       let wireIntent = false
-      if (e.button !== 1) {
+      if (e.button !== 1 && !running) {
         if (store.tool === 'wire') wireIntent = true
         else if (e.pointerType === 'pen') wireIntent = snap.kind === 'pin' || (!hit.compId && (snap.kind === 'wire' || !!hit.wireId))
         else if (e.pointerType === 'mouse') wireIntent = snap.kind === 'pin' || (!hit.compId && !!hit.wireId)
       }
-      mode = { kind: 'pending', id: e.pointerId, sx: p.x, sy: p.y, hit, wireStart: wireIntent ? snap : null }
+      mode = { kind: 'pending', id: e.pointerId, sx: p.x, sy: p.y, hit, wireStart: wireIntent ? snap : null, tap }
 
       // 길게 누르기: 선택 + 속성 창
       cancelLongPress()
@@ -138,7 +164,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
         cancelLongPress()
         if (mode.wireStart) {
           mode = { kind: 'wire', id: e.pointerId, from: mode.wireStart.point, preferVertical: Math.abs(dy) >= Math.abs(dx), route: [] }
-        } else if (mode.hit.compId) {
+        } else if (mode.hit.compId && useSim.getState().mode === 'edit') {
           const c = store.circuit.components.find((k) => k.id === (mode as { hit: Hit }).hit.compId)
           if (!c) return
           store.select(c.id)
@@ -184,14 +210,30 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
     }
 
     const onUp = (e: PointerEvent) => {
+      const held = pressed.get(e.pointerId)
+      if (held !== undefined) {
+        pressed.delete(e.pointerId)
+        // 같은 버튼을 다른 손가락이 아직 누르고 있으면 그대로 둔다
+        if (![...pressed.values()].includes(held)) useSim.getState().act({ type: 'release', tag: held })
+        return
+      }
       if (!ptrs.has(e.pointerId)) return
       ptrs.delete(e.pointerId)
       cancelLongPress()
       const store = useEditor.getState()
 
       if (mode.kind === 'pending' && mode.id === e.pointerId && e.type === 'pointerup') {
-        // 톡 치기: 부품 → 배선 → 빈 곳(선택 해제) 순서로 선택
-        store.select(mode.hit.compId ?? mode.hit.wireId)
+        if (useSim.getState().mode === 'run') {
+          // 실행 모드의 톡 치기는 조작. 속성 창은 닫는다
+          store.select(null)
+          if (mode.tap) {
+            useSim.getState().act(mode.tap)
+            navigator.vibrate?.(10)
+          }
+        } else {
+          // 톡 치기: 부품 → 배선 → 빈 곳(선택 해제) 순서로 선택
+          store.select(mode.hit.compId ?? mode.hit.wireId)
+        }
       }
       if (mode.kind === 'wire' && mode.id === e.pointerId) {
         const route = mode.route
@@ -227,6 +269,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       cancelLongPress()
+      for (const tag of new Set(pressed.values())) useSim.getState().act({ type: 'release', tag })
       el.removeEventListener('pointerdown', onDown)
       el.removeEventListener('pointermove', onMove)
       el.removeEventListener('pointerup', onUp)

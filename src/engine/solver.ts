@@ -47,6 +47,8 @@ export interface Solution {
   segments: WireSegment[]
   /** 단락된 그룹마다 섞인 전위 목록 */
   shorts: Phase[][]
+  /** 직렬로 연결돼 동작하지 않는 부하 (안내 경고용) */
+  seriesLoads: string[]
 }
 
 const SYSTEM: Record<Phase, 'PN' | 'RST'> = { P: 'PN', N: 'PN', R: 'RST', S: 'RST', T: 'RST' }
@@ -156,6 +158,34 @@ export function solve(circuit: Circuit, graph: Graph, closedOf: (c: Component) =
     }
   }
 
+  // 부하 직렬 연결 감지: 전원에 닿지 않은 한 그룹에 부하 두 개가 매달려 있고,
+  // 두 부하의 바깥쪽 단자가 서로 다른 전위(P와 N 등)이면 직렬 연결이다.
+  // 교재에서는 부하를 직렬로 연결하지 않으므로 동작시키지 않고 경고만 한다.
+  const floating = new Map<number, { id: string; outer: Potential }[]>()
+  for (const c of circuit.components) {
+    if (c.kind === 'motor' || loadPins(c, burnt).length !== 2) continue
+    const a = node(c.id, '1')
+    const b = node(c.id, '2')
+    if (a === undefined || b === undefined) continue
+    for (const [inner, outer] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      const po = pot(outer)
+      if (pot(inner) !== null || !po || po === 'short') continue
+      const g = group[inner]!
+      if (!floating.has(g)) floating.set(g, [])
+      floating.get(g)!.push({ id: c.id, outer: po })
+    }
+  }
+  const series = new Set<string>()
+  for (const loads of floating.values()) {
+    for (const x of loads) {
+      if (loads.some((y) => y.id !== x.id && isPowered(x.outer, y.outer))) series.add(x.id)
+    }
+  }
+  const seriesLoads = circuit.components.filter((c) => series.has(c.id)).map((c) => c.id)
+
   // 5) 전류 경로: 그룹마다 전원(S)과 부하 단자(K)를 가상 간선으로 이어 블록 분해
   type E = readonly [number, number]
   const flowEdges: E[] = [...graph.edges.map((e) => [e.a, e.b] as const), ...poleEdges.map((e) => [e.a, e.b] as const)]
@@ -256,5 +286,5 @@ export function solve(circuit: Circuit, graph: Graph, closedOf: (c: Component) =
     if (st === 'short') shortThrough[pe.compId] = true
   })
 
-  return { nodePotential, group, closed, conducting, shortThrough, energized, motors, segments, shorts }
+  return { nodePotential, group, closed, conducting, shortThrough, energized, motors, segments, shorts, seriesLoads }
 }
