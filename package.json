@@ -1,7 +1,7 @@
 {
   "name": "sequence-sim",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "시퀀스 회로 시뮬레이터 - 공업고 시퀀스 제어 수업용 PWA",
   "type": "module",
   "scripts": {

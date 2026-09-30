@@ -35,9 +35,10 @@ src/
     netlist.ts     #   배선 → 노드(넷) 계산 (union-find)
     solver.ts      #   통전 경로 계산, 단락 검출
     scan.ts        #   PLC 스캔 루프, 안정화/발진 판정
-    devices/       #   부품별 동작 정의 (릴레이, 타이머, 카운터, THR …)
-    scenario.ts    #   과제 모드 입력 시나리오 재생·판정
-    faults.ts      #   고장 주입 (단선, 접점 불량, 코일 소손)
+    geometry.ts    #   부품 핀 위치, 회전
+    blocks.ts      #   전류 경로 계산용 블록 분해
+    state.ts       #   시뮬레이션 상태와 조작(버튼 누름 등)
+    builder.ts     #   코드로 회로 조립 (테스트·예제용)
     __tests__/     #   엔진 단위 테스트
   editor/          # 캔버스 편집기 (react-konva): 격자, 배치, 배선, 제스처
   symbols/         # 부품 기호 렌더링 컴포넌트
@@ -134,7 +135,10 @@ P/N 모선, PB-a, PB-b, 셀렉터 스위치(COS), 리밋 스위치(LS-a/b), 릴�
 - 엔진 코드에는 동작 근거가 되는 시퀀스 원리를 짧게 주석으로 남긴다 (교사가 읽어도 이해할 수 있게).
 - 색상·크기는 테마 토큰으로 관리 (하드코딩 금지). 통전/활선/무전압/경고 색은 한 곳에서 정의.
 - 캔버스 성능: 정적 레이어(격자, 부품)와 동적 레이어(통전 애니메이션)를 분리, 애니메이션은 `requestAnimationFrame` 하나로 관리.
-- 새 부품을 추가할 때: `engine/devices`에 동작 + 테스트, `symbols`에 기호, 팔레트 등록 순서로 진행.
+- 새 부품을 추가할 때: 엔진(`model.ts`·`geometry.ts`·`scan.ts`)에 동작 + 테스트 → `symbols/defs.ts`에 기호 → `editor/palette.ts`에 등록.
+- 부품 기호는 `symbols/defs.ts` 한 곳에서 격자 단위 기본 도형으로 정의하고, 캔버스(`KonvaSymbol`)와 팔레트 아이콘(`SvgSymbol`)이 같은 정의를 쓴다.
+  접점 가동편은 각도(`bladeAngle`)로 표현해 실행 모드 전환 애니메이션에 그대로 쓴다.
+- 색은 `ui/theme.ts`의 `colors`에서만 정의한다. CSS는 `applyThemeVars()`가 넣은 `--kebab-case` 변수를 쓴다.
 
 ## 개발 진행 방식
 

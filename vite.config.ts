@@ -9,6 +9,10 @@ const BASE = '/sequence-sim/'
 
 export default defineConfig({
   base: BASE,
+  build: {
+    // 캔버스 라이브러리(Konva)가 커서 경고 기준을 올린다. 오프라인 앱이라 어차피 전부 미리 캐시한다.
+    chunkSizeWarningLimit: 900,
+  },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

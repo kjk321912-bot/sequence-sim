@@ -39,7 +39,7 @@ export class CircuitBuilder {
     return this.add({ kind: 'coil', x, y, device, tag, ...(preset !== undefined ? { preset } : {}) })
   }
 
-  lamp(x: number, y: number, color: LampColor, tag = color) {
+  lamp(x: number, y: number, color: LampColor, tag: string = color) {
     return this.add({ kind: 'lamp', x, y, color, tag })
   }
 
