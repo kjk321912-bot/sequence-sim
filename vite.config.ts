@@ -45,7 +45,5 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
-    // 0단계에는 테스트 파일이 아직 없음 (1단계 엔진부터 추가)
-    passWithNoTests: true,
   },
 })
