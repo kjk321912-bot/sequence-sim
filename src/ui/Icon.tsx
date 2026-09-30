@@ -7,6 +7,13 @@ const PATHS = {
   fit: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5',
   file: 'M6 3h8l4 4v14H6zM14 3v4h4',
   sample: 'M4 5h16v14H4zM4 10h16M9 10v9',
+  wire: 'M5 17V10h14V7M3 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+  undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+  redo: 'M15 14l5-5l-5-5M20 9H9a5 5 0 0 0 0 10h3',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  save: 'M12 4v11M7 10l5 5l5-5M5 20h14',
+  open: 'M12 20V9M7 14l5-5l5 5M5 4h14',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
 } as const
 
 export type IconName = keyof typeof PATHS

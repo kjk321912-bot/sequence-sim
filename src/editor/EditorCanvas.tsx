@@ -2,7 +2,7 @@
 import type Konva from 'konva'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Layer, Line, Shape, Stage } from 'react-konva'
-import { buildGraph, type Circuit } from '../engine'
+import { buildGraph, pinsOf, type Circuit, type Point } from '../engine'
 import { useEditor, type View } from '../store/editorStore'
 import { KonvaSymbol } from '../symbols/KonvaSymbol'
 import { colors, GRID } from '../ui/theme'
@@ -16,6 +16,9 @@ export function EditorCanvas() {
   const circuit = useEditor((s) => s.circuit)
   const view = useEditor((s) => s.view)
   const selection = useEditor((s) => s.selection)
+  const tool = useEditor((s) => s.tool)
+  const draftWire = useEditor((s) => s.draftWire)
+  const wiring = tool === 'wire' || !!draftWire
 
   // 캔버스 크기 추적
   useEffect(() => {
@@ -44,7 +47,7 @@ export function EditorCanvas() {
   useCanvasGestures(wrapRef, stageRef)
 
   return (
-    <div ref={wrapRef} className="canvas-wrap">
+    <div ref={wrapRef} className={`canvas-wrap ${tool === 'wire' ? 'wire-tool' : ''}`}>
       {size.width > 0 && (
         <Stage
           ref={stageRef}
@@ -58,13 +61,17 @@ export function EditorCanvas() {
           <Layer listening={false}>
             <Grid view={view} width={size.width} height={size.height} />
           </Layer>
-          <Layer listening={false}>
-            <Wires circuit={circuit} />
+          <Layer>
+            <Wires circuit={circuit} selection={selection} />
           </Layer>
           <Layer>
             {circuit.components.map((c) => (
               <KonvaSymbol key={c.id} comp={c} selected={c.id === selection} />
             ))}
+          </Layer>
+          <Layer listening={false}>
+            {wiring && <PinDots circuit={circuit} />}
+            {draftWire && <DraftWire points={draftWire} />}
           </Layer>
         </Stage>
       )}
@@ -97,10 +104,10 @@ function Grid({ view, width, height }: { view: View; width: number; height: numb
   )
 }
 
-/** 배선 (2단계: 정적 표시) + 접속점 표시 */
-function Wires({ circuit }: { circuit: Circuit }) {
+/** 배선 + 접속점(●). 배선은 눌러서 선택할 수 있다 */
+function Wires({ circuit, selection }: { circuit: Circuit; selection: string | null }) {
   const junctions = useMemo(() => {
-    // 배선·핀·모선이 3개 이상 만나는 점에 접속점(●)
+    // 배선·핀·모선이 3개 이상 만나는 점에 접속점
     const g = buildGraph(circuit)
     const degree = new Array<number>(g.nodeCount).fill(0)
     for (const e of g.edges) {
@@ -117,19 +124,57 @@ function Wires({ circuit }: { circuit: Circuit }) {
 
   return (
     <>
-      {circuit.wires.map((w) => (
-        <Line
-          key={w.id}
-          points={w.points.flatMap((p) => [p.x * GRID, p.y * GRID])}
-          stroke={colors.wireDead}
-          strokeWidth={3}
-          lineCap="round"
-          lineJoin="round"
-        />
-      ))}
+      {circuit.wires.map((w) => {
+        const selected = w.id === selection
+        return (
+          <Line
+            key={w.id}
+            name="wire"
+            id={w.id}
+            points={w.points.flatMap((p) => [p.x * GRID, p.y * GRID])}
+            stroke={selected ? colors.select : colors.wireDead}
+            strokeWidth={selected ? 4 : 3}
+            hitStrokeWidth={18}
+            lineCap="round"
+            lineJoin="round"
+            shadowColor={selected ? colors.select : undefined}
+            shadowBlur={selected ? 10 : 0}
+          />
+        )
+      })}
       {junctions.map((p) => (
-        <Circle key={`${p.x},${p.y}`} x={p.x * GRID} y={p.y * GRID} radius={4.5} fill={colors.wireDead} />
+        <Circle key={`${p.x},${p.y}`} x={p.x * GRID} y={p.y * GRID} radius={4.5} fill={colors.wireDead} listening={false} />
       ))}
+    </>
+  )
+}
+
+/** 배선할 때 모든 핀 위치 표시 */
+function PinDots({ circuit }: { circuit: Circuit }) {
+  const pins = useMemo(() => circuit.components.flatMap((c) => pinsOf(c)), [circuit])
+  return (
+    <>
+      {pins.map((p, i) => (
+        <Circle key={i} x={p.x * GRID} y={p.y * GRID} radius={4} fill={colors.accent} opacity={0.75} />
+      ))}
+    </>
+  )
+}
+
+/** 그리는 중인 배선 미리보기 */
+function DraftWire({ points }: { points: Point[] }) {
+  const end = points[points.length - 1]
+  return (
+    <>
+      <Line
+        points={points.flatMap((p) => [p.x * GRID, p.y * GRID])}
+        stroke={colors.accent}
+        strokeWidth={3}
+        dash={[8, 6]}
+        lineCap="round"
+        lineJoin="round"
+      />
+      {end && <Circle x={end.x * GRID} y={end.y * GRID} radius={9} stroke={colors.accent} strokeWidth={2.5} />}
     </>
   )
 }

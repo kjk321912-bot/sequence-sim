@@ -1,19 +1,19 @@
 // 캔버스 입력 처리 (Pointer Events로 손가락·S펜·마우스 통합)
 //
-//   한 손가락 / 마우스 / S펜
-//     - 부품 위에서 끌기 → 부품 이동 (격자 스냅)
-//     - 빈 곳에서 끌기 → 화면 이동
-//     - 톡 치기 → 부품 선택 / 선택 해제
-//   두 손가락 → 핀치 줌 + 화면 이동
+//   S펜       핀·배선 근처에서 긋기 → 배선 / 부품 위 → 부품 이동 / 빈 곳 → 화면 이동
+//   마우스    핀에서 끌기 → 배선, 배선에서 끌기 → 가지 배선 / 부품 → 이동 / 빈 곳 → 화면 이동
+//   손가락    부품 → 이동 / 빈 곳 → 화면 이동 / 두 손가락 → 핀치 줌
+//             (툴바의 배선 도구를 켜면 손가락으로도 배선)
+//   공통      톡 치기 → 선택, 길게 누르기 → 선택(속성 창) + 진동
 //   마우스 휠 → 커서 위치 기준 줌
-//
-// 3단계에서 S펜 배선, 롱프레스가 추가된다.
 
 import type Konva from 'konva'
 import { useEffect, type RefObject } from 'react'
+import type { Circuit, Point } from '../engine'
 import { useEditor } from '../store/editorStore'
 import { GRID } from '../ui/theme'
-import { clampScale, zoomAt } from './viewMath'
+import { clampScale, screenToGrid, zoomAt } from './viewMath'
+import { chooseRoute, snapPoint, type Snap } from './wiring'
 
 interface Ptr {
   x: number
@@ -21,15 +21,25 @@ interface Ptr {
   type: string
 }
 
+interface Hit {
+  compId: string | null
+  wireId: string | null
+}
+
 type Mode =
   | { kind: 'idle' }
-  | { kind: 'pending'; id: number; sx: number; sy: number; compId: string | null }
-  | { kind: 'drag'; id: number; compId: string; sx: number; sy: number; ox: number; oy: number }
+  | { kind: 'pending'; id: number; sx: number; sy: number; hit: Hit; wireStart: Snap | null }
+  | { kind: 'held'; id: number } // 길게 눌러 선택한 뒤 손을 뗄 때까지
+  | { kind: 'drag'; id: number; compId: string; base: Circuit; sx: number; sy: number; ox: number; oy: number }
+  | { kind: 'wire'; id: number; from: Point; preferVertical: boolean; route: Point[] }
   | { kind: 'pan'; id: number; lx: number; ly: number }
   | { kind: 'pinch'; a: number; b: number; dist: number; cx: number; cy: number; view: ReturnType<typeof useEditor.getState>['view'] }
 
 /** 이 거리 이상 움직여야 끌기로 본다 (px) */
-const DRAG_SLOP = { mouse: 4, pen: 6, touch: 10 } as Record<string, number>
+const DRAG_SLOP: Record<string, number> = { mouse: 4, pen: 6, touch: 10 }
+/** 핀에 달라붙는 거리 (화면 px) */
+const SNAP_PX: Record<string, number> = { mouse: 12, pen: 16, touch: 24 }
+const LONG_PRESS_MS = 500
 
 export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, stage: RefObject<Konva.Stage | null>) {
   useEffect(() => {
@@ -37,35 +47,40 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
     if (!el) return
     const ptrs = new Map<number, Ptr>()
     let mode: Mode = { kind: 'idle' }
+    let longTimer: ReturnType<typeof setTimeout> | undefined
 
     const local = (e: PointerEvent | WheelEvent) => {
       const r = el.getBoundingClientRect()
       return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
 
-    /** 화면 위치의 부품 id */
-    const hitComponent = (x: number, y: number): string | null => {
-      const shape = stage.current?.getIntersection({ x, y })
-      let node: Konva.Node | null = shape ?? null
+    /** 화면 위치의 부품·배선 */
+    const hitTest = (x: number, y: number): Hit => {
+      const hit: Hit = { compId: null, wireId: null }
+      let node: Konva.Node | null = stage.current?.getIntersection({ x, y }) ?? null
       while (node) {
-        if (node.name() === 'comp') return node.id()
+        if (node.name() === 'comp') hit.compId = node.id()
+        if (node.name() === 'wire') hit.wireId = node.id()
         node = node.getParent()
       }
-      return null
+      return hit
     }
+
+    const cancelLongPress = () => clearTimeout(longTimer)
+
+    const endWireDraft = () => useEditor.getState().setDraftWire(null)
 
     const startPinch = () => {
       const [a, b] = [...ptrs.entries()]
       if (!a || !b) return
-      const cx = (a[1].x + b[1].x) / 2
-      const cy = (a[1].y + b[1].y) / 2
+      if (mode.kind === 'wire') endWireDraft()
       mode = {
         kind: 'pinch',
         a: a[0],
         b: b[0],
         dist: Math.hypot(a[1].x - b[1].x, a[1].y - b[1].y) || 1,
-        cx,
-        cy,
+        cx: (a[1].x + b[1].x) / 2,
+        cy: (a[1].y + b[1].y) / 2,
         view: useEditor.getState().view,
       }
     }
@@ -77,29 +92,58 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
       ptrs.set(e.pointerId, { ...p, type: e.pointerType })
 
       if (ptrs.size === 2 && e.pointerType === 'touch') {
+        cancelLongPress()
         startPinch() // 끌던 부품은 그 자리에 둔다
         return
       }
       if (ptrs.size > 1) return
-      const compId = e.button === 1 ? null : hitComponent(p.x, p.y)
-      mode = { kind: 'pending', id: e.pointerId, sx: p.x, sy: p.y, compId }
+
+      const store = useEditor.getState()
+      const hit: Hit = e.button === 1 ? { compId: null, wireId: null } : hitTest(p.x, p.y)
+      const g = screenToGrid(store.view, p.x, p.y)
+      const radius = (SNAP_PX[e.pointerType] ?? 14) / (GRID * store.view.scale)
+      const snap = snapPoint(store.circuit, g, radius)
+
+      // 배선을 시작하는가
+      let wireIntent = false
+      if (e.button !== 1) {
+        if (store.tool === 'wire') wireIntent = true
+        else if (e.pointerType === 'pen') wireIntent = snap.kind === 'pin' || (!hit.compId && (snap.kind === 'wire' || !!hit.wireId))
+        else if (e.pointerType === 'mouse') wireIntent = snap.kind === 'pin' || (!hit.compId && !!hit.wireId)
+      }
+      mode = { kind: 'pending', id: e.pointerId, sx: p.x, sy: p.y, hit, wireStart: wireIntent ? snap : null }
+
+      // 길게 누르기: 선택 + 속성 창
+      cancelLongPress()
+      longTimer = setTimeout(() => {
+        if (mode.kind !== 'pending' || mode.id !== e.pointerId) return
+        const target = mode.hit.compId ?? mode.hit.wireId
+        if (!target) return
+        useEditor.getState().select(target)
+        navigator.vibrate?.(15)
+        mode = { kind: 'held', id: e.pointerId }
+      }, LONG_PRESS_MS)
     }
 
     const onMove = (e: PointerEvent) => {
-      const prev = ptrs.get(e.pointerId)
-      if (!prev) return
+      if (!ptrs.has(e.pointerId)) return
       const p = local(e)
       ptrs.set(e.pointerId, { ...p, type: e.pointerType })
       const store = useEditor.getState()
 
       if (mode.kind === 'pending' && mode.id === e.pointerId) {
-        if (Math.hypot(p.x - mode.sx, p.y - mode.sy) < (DRAG_SLOP[e.pointerType] ?? 6)) return
-        const hitId = mode.compId
-        if (hitId) {
-          const c = store.circuit.components.find((k) => k.id === hitId)
+        const dx = p.x - mode.sx
+        const dy = p.y - mode.sy
+        if (Math.hypot(dx, dy) < (DRAG_SLOP[e.pointerType] ?? 6)) return
+        cancelLongPress()
+        if (mode.wireStart) {
+          mode = { kind: 'wire', id: e.pointerId, from: mode.wireStart.point, preferVertical: Math.abs(dy) >= Math.abs(dx), route: [] }
+        } else if (mode.hit.compId) {
+          const c = store.circuit.components.find((k) => k.id === (mode as { hit: Hit }).hit.compId)
           if (!c) return
           store.select(c.id)
-          mode = { kind: 'drag', id: e.pointerId, compId: c.id, sx: mode.sx, sy: mode.sy, ox: c.x, oy: c.y }
+          const base = store.beginDrag()
+          mode = { kind: 'drag', id: e.pointerId, compId: c.id, base, sx: mode.sx, sy: mode.sy, ox: c.x, oy: c.y }
         } else {
           mode = { kind: 'pan', id: e.pointerId, lx: mode.sx, ly: mode.sy }
         }
@@ -111,7 +155,14 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
         const y = mode.oy + Math.round((p.y - mode.sy) / step)
         const dragId = mode.compId
         const c = store.circuit.components.find((k) => k.id === dragId)
-        if (c && (c.x !== x || c.y !== y)) store.moveComponent(dragId, x, y)
+        if (c && (c.x !== x || c.y !== y)) store.dragComponent(mode.base, dragId, x, y)
+      } else if (mode.kind === 'wire' && mode.id === e.pointerId) {
+        const g = screenToGrid(store.view, p.x, p.y)
+        const radius = (SNAP_PX[e.pointerType] ?? 14) / (GRID * store.view.scale)
+        const end = snapPoint(store.circuit, g, radius)
+        const route = chooseRoute(store.circuit, mode.from, end.point, mode.preferVertical)
+        mode = { ...mode, route }
+        store.setDraftWire(route)
       } else if (mode.kind === 'pan' && mode.id === e.pointerId) {
         const v = store.view
         store.setView({ ...v, x: v.x + p.x - mode.lx, y: v.y + p.y - mode.ly })
@@ -135,9 +186,17 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
     const onUp = (e: PointerEvent) => {
       if (!ptrs.has(e.pointerId)) return
       ptrs.delete(e.pointerId)
+      cancelLongPress()
+      const store = useEditor.getState()
+
       if (mode.kind === 'pending' && mode.id === e.pointerId && e.type === 'pointerup') {
-        // 톡 치기: 선택 / 해제
-        useEditor.getState().select(mode.compId)
+        // 톡 치기: 부품 → 배선 → 빈 곳(선택 해제) 순서로 선택
+        store.select(mode.hit.compId ?? mode.hit.wireId)
+      }
+      if (mode.kind === 'wire' && mode.id === e.pointerId) {
+        const route = mode.route
+        endWireDraft()
+        if (e.type === 'pointerup' && route.length >= 2) store.addWire(route)
       }
       if (mode.kind === 'pinch') {
         // 손가락 하나만 남으면 그 손가락으로 화면 이동을 이어간다
@@ -167,6 +226,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
     el.addEventListener('pointercancel', onUp)
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => {
+      cancelLongPress()
       el.removeEventListener('pointerdown', onDown)
       el.removeEventListener('pointermove', onMove)
       el.removeEventListener('pointerup', onUp)

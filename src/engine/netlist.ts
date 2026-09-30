@@ -1,8 +1,10 @@
 // 넷리스트: 회로 도면(부품 핀 + 배선 + 모선)을 연결 그래프로 바꾼다.
 //
 // 연결 규칙
-// - 같은 격자점에 있는 핀과 배선 꼭짓점은 서로 연결된다.
-// - 핀이나 배선 꼭짓점이 다른 배선의 선분 위에 놓이면 그 지점에서 연결된다(T 접속).
+// - 같은 격자점에 있는 핀과 배선 꼭짓점(끝점·꺾인 점)은 서로 연결된다.
+// - 배선 꼭짓점이 다른 배선의 선분 중간에 놓이면 그 지점에서 연결된다(T 접속).
+// - 핀이 배선 선분의 "중간"에 놓인 것만으로는 연결되지 않는다.
+//   (세로줄을 따라 그은 배선이 접점 두 단자 위를 지나가며 몰래 단락시키는 것을 막는다)
 // - 배선끼리 교차만 하고 꼭짓점을 공유하지 않으면 연결되지 않는다.
 // - 모선은 선분 전체가 단자다. 모선 위에 놓인 핀·배선 끝은 모두 모선에 연결된다.
 // - 단선 고장이 심어진 배선은 도통하지 않는다.
@@ -76,8 +78,12 @@ export function buildGraph(circuit: Circuit): Graph {
   for (const c of circuit.components) {
     for (const pin of pinsOf(c)) terminals.set(terminalKey(c.id, pin.name), addPoint(pin))
   }
+  const pinCount = nodePoints.length
   for (const w of wires) for (const p of w.points) addPoint(p)
   const allPoints = nodePoints.map((p, i) => ({ p: p as Point, i }))
+  // 배선을 자르는 점: 배선 꼭짓점만 (핀만 있는 점은 제외)
+  const vertexKeys = new Set(wires.flatMap((w) => w.points.map(pointKey)))
+  const cutPoints = allPoints.filter(({ p, i }) => i >= pinCount || vertexKeys.has(pointKey(p)))
 
   const edges: StaticEdge[] = []
 
@@ -86,7 +92,7 @@ export function buildGraph(circuit: Circuit): Graph {
     for (let s = 0; s + 1 < w.points.length; s++) {
       const a = w.points[s] as Point
       const b = w.points[s + 1] as Point
-      const on = allPoints
+      const on = cutPoints
         .filter(({ p }) => onSegment(p, a, b))
         .sort((u, v) => Math.abs(u.p.x - a.x) + Math.abs(u.p.y - a.y) - (Math.abs(v.p.x - a.x) + Math.abs(v.p.y - a.y)))
       for (let k = 0; k + 1 < on.length; k++) {

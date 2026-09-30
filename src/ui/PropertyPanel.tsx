@@ -1,6 +1,6 @@
 // 속성 창: 부품을 선택하면 캔버스 아래에 떠서 번호·a/b·설정값을 바꾼다
 import { useState } from 'react'
-import type { Component, LampColor, Phase } from '../engine'
+import { busSegment, onSegment, pinsOf, type Component, type LampColor, type Phase, type Point, type Wire } from '../engine'
 import { stepTag, tagFamily } from '../editor/palette'
 import { useEditor } from '../store/editorStore'
 import { PHASE_LABEL } from '../symbols/defs'
@@ -67,9 +67,58 @@ const cleanTag = (s: string) => s.replace(/\s+/g, '').toUpperCase().slice(0, 8)
 export function PropertyPanel() {
   const selection = useEditor((s) => s.selection)
   const comp = useEditor((s) => s.circuit.components.find((c) => c.id === s.selection))
-  if (!selection || !comp) return null
+  const wire = useEditor((s) => s.circuit.wires.find((w) => w.id === s.selection))
+  if (!selection) return null
+  if (wire) return <WirePanel key={wire.id} wire={wire} />
+  if (!comp) return null
   // key: 다른 부품을 고르면 입력 상태를 새로 시작
   return <Panel key={comp.id} comp={comp} />
+}
+
+/** 배선 선택: 양 끝이 무엇에 연결됐는지 보여 주고 삭제 */
+function WirePanel({ wire }: { wire: Wire }) {
+  const circuit = useEditor((s) => s.circuit)
+  const { deleteSelected, select } = useEditor.getState()
+  const endName = (p: Point) => {
+    for (const c of circuit.components) {
+      const pin = pinsOf(c).find((q) => q.x === p.x && q.y === p.y)
+      if (pin) return 'tag' in c ? `${c.tag} 단자` : describe(c)
+    }
+    for (const c of circuit.components) {
+      if (c.kind === 'bus') {
+        const [a, b] = busSegment(c)
+        if (onSegment(p, a, b)) return `${PHASE_LABEL[c.phase]} 모선`
+      }
+    }
+    for (const w of circuit.wires) {
+      if (w.id === wire.id) continue
+      for (let i = 0; i + 1 < w.points.length; i++) {
+        if (onSegment(p, w.points[i]!, w.points[i + 1]!)) return '다른 배선 (T 접속)'
+      }
+    }
+    return '연결 안 됨'
+  }
+  const ends = [endName(wire.points[0]!), endName(wire.points[wire.points.length - 1]!)]
+  return (
+    <div className="props" role="dialog" aria-label="배선 속성">
+      <div className="props-head">
+        <strong>배선</strong>
+        <div className="props-actions">
+          <button onClick={deleteSelected} title="삭제" className="danger">
+            <Icon name="trash" size={20} />
+          </button>
+          <button onClick={() => select(null)} title="닫기" aria-label="닫기">
+            ✕
+          </button>
+        </div>
+      </div>
+      <Row label="연결">
+        <span className={ends.includes('연결 안 됨') ? 'warn-text' : ''}>
+          {ends[0]} ↔ {ends[1]}
+        </span>
+      </Row>
+    </div>
+  )
 }
 
 function Panel({ comp }: { comp: Component }) {

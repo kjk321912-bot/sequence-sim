@@ -18,6 +18,22 @@ describe('넷리스트', () => {
     expect(g.edges.filter((e) => e.kind === 'wire' && e.wireId === branch)).toHaveLength(1)
   })
 
+  it('배선이 접점의 두 핀 위를 지나가기만 해서는 단락되지 않는다', () => {
+    const b = new CircuitBuilder()
+    b.bus('P', 0, 0, 10)
+    b.bus('N', 0, 12, 10)
+    const pb = b.contact(2, 4, 'pb', 'a', 'PB1')
+    const lamp = b.lamp(2, 7, 'RL')
+    // P모선(2,0)에서 램프 위 핀(2,7)까지 곧게 내려오는 배선이 PB1의 두 핀 (2,4)·(2,7) 위를 지난다
+    b.wire([2, 0], [2, 7])
+    b.wire([2, 10], [2, 12])
+    const g = buildGraph(b.build())
+    const top = g.terminals.get(terminalKey(pb, '1'))!
+    expect(g.staticNet[top]).not.toBe(g.staticNet[g.pointIndex.get('2,0')!])
+    // 램프 위 핀은 배선 끝점이므로 연결 → PB1과 무관하게 점등 (배선이 PB1을 우회)
+    expect(new Simulator(b.build()).last.solution.energized[lamp]).toBe(true)
+  })
+
   it('부품을 90° 돌리면 핀이 가로로 놓인다', () => {
     const b = new CircuitBuilder()
     b.add({ kind: 'lamp', x: 5, y: 5, rot: 90, color: 'RL', tag: 'RL' })
