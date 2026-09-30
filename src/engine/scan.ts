@@ -233,6 +233,10 @@ function settle(circuit: Circuit, graph: Graph, ix: Index, start: SimState) {
   let iterations = 1
   const changedLate = new Set<string>()
   while (iterations <= MAX_ITERATIONS) {
+    // 단락은 한순간이라도 사고다: 단락이 생긴 순간에서 멈춘다.
+    // (조작 전원을 주회로에서 따오는 회로는 선간 단락으로 조작 전원이 무너져 코일이 떨어지고,
+    //  계속 계산하면 단락 대신 붙었다 떨어지기(발진)로 보이게 된다)
+    if (solution.shorts.length) break
     const coils = coilsFrom(circuit, solution)
     if (sameCoils(coils, s.coils)) {
       // 한 번도 바뀌지 않은 코일도 false로 채워 둔다

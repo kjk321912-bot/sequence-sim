@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { CircuitBuilder, initialState, type Circuit, type Component } from '../../../engine'
 import { useEditor } from '../../../store/editorStore'
 import { liveResult, useSim } from '../../../store/simStore'
-import { operationOf } from '../operate'
+import { showcaseCircuit } from '../../../examples/showcase'
+import { objJosa, operationOf, powerHintText } from '../operate'
 import { labelsOf, rotorsOf, visualsOf } from '../visuals'
 
 const TOP = 0
@@ -182,5 +183,34 @@ describe('화면 표시', () => {
     const circuit = useEditor.getState().circuit
     expect(labelsOf(circuit, sim().result!).find((l) => l.key === m)?.text).toBe('정회전')
     expect(rotorsOf(circuit, sim().result!)).toMatchObject([{ id: m, dir: 1 }])
+  })
+})
+
+describe('조작 전원 없음 안내', () => {
+  it('예제 회로에서 MCCB를 켜기 전에 PB를 누르면 MCCB를 먼저 켜라고 알린다', () => {
+    sim().setMode('edit')
+    useEditor.getState().setCircuit(showcaseCircuit())
+    sim().setMode('run')
+    useEditor.setState({ toast: null })
+    const pb1 = find((c) => c.kind === 'contact' && c.tag === 'PB1')
+    sim().act({ type: 'press', tag: 'PB1' }, pb1.id)
+    expect(useEditor.getState().toast?.text).toBe('조작 전원이 없습니다 — MCCB를 먼저 켜세요')
+    sim().act({ type: 'release', tag: 'PB1' }, pb1.id)
+
+    useEditor.setState({ toast: null })
+    const mccb = find((c) => c.kind === 'mccb')
+    sim().act({ type: 'toggle', tag: 'MCCB' }, mccb.id)
+    sim().act({ type: 'press', tag: 'PB1' }, pb1.id)
+    expect(useEditor.getState().toast).toBeNull()
+  })
+
+  it('안내 문구의 조사를 부품 이름 소리에 맞춘다', () => {
+    expect(objJosa('MCCB')).toBe('MCCB를')
+    expect(objJosa('F1')).toBe('F1을')
+    expect(objJosa('F2')).toBe('F2를')
+    expect(objJosa('EOCR')).toBe('EOCR을')
+    expect(objJosa('차단기')).toBe('차단기를')
+    expect(powerHintText([{ kind: 'fuseBlown', tags: ['F1'] }])).toBe('조작 전원이 없습니다 — 용단된 퓨즈 F1을 톡 쳐서 교체하세요')
+    expect(powerHintText([])).toBeNull()
   })
 })

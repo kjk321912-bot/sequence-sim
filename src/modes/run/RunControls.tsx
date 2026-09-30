@@ -67,7 +67,7 @@ export function RunBanner() {
     const names = phases.map((p) => PHASE_LABEL[p]).join('–')
     list.push({
       kind: 'danger',
-      text: `단락! ${names}가 부하 없이 바로 이어졌습니다. 빨간 경로를 확인하세요${paused ? ' · 시뮬레이션 정지' : ''}`,
+      text: `단락! ${names}가 부하 없이 바로 이어졌습니다. 빨간 경로를 확인하세요${paused ? ' · 시뮬레이션 정지 (원인을 고친 뒤 ↺ 처음부터)' : ''}`,
     })
   }
   if (oscillating.length) {

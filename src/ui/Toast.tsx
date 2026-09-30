@@ -10,7 +10,8 @@ export function Toast() {
       () => {
         if (useEditor.getState().toast?.id === toast.id) useEditor.setState({ toast: null })
       },
-      toast.kind === 'error' ? 5000 : 3000,
+      // 긴 안내(예제 조작 방법 등)는 읽을 시간을 더 준다
+      Math.max(toast.kind === 'error' ? 5000 : 3000, toast.text.length * 90),
     )
     return () => clearTimeout(t)
   }, [toast])

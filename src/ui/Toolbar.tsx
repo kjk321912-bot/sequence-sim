@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { emptyCircuit } from '../engine'
 import { fitView, getCanvasRect, zoomAt } from '../editor/viewMath'
-import { showcaseCircuit } from '../examples/showcase'
 import { useEditor } from '../store/editorStore'
 import { useSim, type Mode } from '../store/simStore'
+import { ExamplePicker } from './ExamplePicker'
 import { openFromFile, saveToFile } from './fileActions'
 import { Icon, type IconName } from './Icon'
 
@@ -105,6 +105,7 @@ export function Toolbar() {
 
 function FileMenu() {
   const [open, setOpen] = useState(false)
+  const [picking, setPicking] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   // 메뉴 밖을 누르면 닫기
@@ -143,10 +144,7 @@ function FileMenu() {
             store.setCircuit(emptyCircuit())
             store.showToast('새 회로를 만들었습니다 · 되돌리기로 이전 회로를 되살릴 수 있습니다')
           })}
-          {item('sample', '예제 회로 열기', () => {
-            store.setCircuit(showcaseCircuit())
-            requestAnimationFrame(fitToScreen)
-          })}
+          {item('sample', '예제 회로', () => setPicking(true))}
           <hr />
           {item('save', '파일로 저장', saveToFile)}
           {item('open', '파일 불러오기', () => openFromFile(() => requestAnimationFrame(fitToScreen)))}
@@ -157,6 +155,7 @@ function FileMenu() {
           })}
         </div>
       )}
+      {picking && <ExamplePicker onClose={() => setPicking(false)} onOpened={() => requestAnimationFrame(fitToScreen)} />}
     </div>
   )
 }

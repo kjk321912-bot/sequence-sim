@@ -109,7 +109,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
         const op = comp && live ? operationOf(comp, live.state) : null
         if (op?.kind === 'momentary') {
           pressed.set(e.pointerId, op.tag)
-          useSim.getState().act({ type: 'press', tag: op.tag })
+          useSim.getState().act({ type: 'press', tag: op.tag }, comp!.id)
           navigator.vibrate?.(10)
           return
         }
@@ -227,7 +227,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
           // 실행 모드의 톡 치기는 조작. 속성 창은 닫는다
           store.select(null)
           if (mode.tap) {
-            useSim.getState().act(mode.tap)
+            useSim.getState().act(mode.tap, mode.hit.compId)
             navigator.vibrate?.(10)
           }
         } else {

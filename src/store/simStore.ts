@@ -4,7 +4,8 @@
 // 매 프레임 계산 결과(live)는 반응형 상태에 넣지 않고, 화면에 보이는 것이 바뀔 때만
 // result를 갱신한다 (60fps로 캔버스 전체를 다시 그리지 않도록).
 import { create } from 'zustand'
-import { applyAction, buildGraph, initialState, step, type Action, type Circuit, type Graph, type StepResult } from '../engine'
+import { applyAction, buildGraph, initialState, missingPower, step, type Action, type Circuit, type Graph, type StepResult } from '../engine'
+import { isInputAction, powerHintText } from '../modes/run/operate'
 import { useEditor } from './editorStore'
 
 export type Mode = 'edit' | 'run'
@@ -27,8 +28,11 @@ export interface SimStore {
   setSpeed: (s: Speed) => void
   /** 모든 입력·코일·타이머를 처음 상태로 */
   reset: () => void
-  /** 버튼 누름 등 조작 → 즉시 안정 상태까지 계산 */
-  act: (a: Action) => void
+  /**
+   * 버튼 누름 등 조작 → 즉시 안정 상태까지 계산.
+   * compId(조작한 부품)를 넘기면 그 부품에 전압이 없을 때 원인(차단기·퓨즈·트립)을 알려 준다.
+   */
+  act: (a: Action, compId?: string | null) => void
   /** 실제 경과 시간(ms)만큼 진행 (일시정지·배속 반영) */
   advance: (realMs: number) => void
 }
@@ -125,9 +129,10 @@ export const useSim = create<SimStore>((set, get) => ({
     restart()
   },
 
-  act: (a) => {
+  act: (a, compId) => {
     if (!live) return
     const prev = live
+    if (compId) hintNoPower(live, a, compId)
     run(applyAction(live.state, a), 0)
     publish(prev)
   },
@@ -168,3 +173,12 @@ useEditor.subscribe((s, prev) => {
   run(live.state, 0)
   publish(before)
 })
+
+/** 전압이 없는 입력 장치를 조작하면 원인을 알려 준다 ("MCCB를 먼저 켜세요" 등) */
+function hintNoPower(current: StepResult, a: Action, compId: string) {
+  const ed = useEditor.getState()
+  const comp = ed.circuit.components.find((c) => c.id === compId)
+  if (!comp || !isInputAction(comp, a)) return
+  const text = powerHintText(missingPower(ed.circuit, currentGraph(ed.circuit), current, compId))
+  if (text) ed.showToast(text, 'error')
+}

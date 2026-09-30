@@ -8,3 +8,4 @@ export { applyAction, initialState, resetKey, powerKey, type Action, type SimSta
 export { step, contactActivity, Simulator, MAX_ITERATIONS, type StepResult } from './scan'
 export { CircuitBuilder } from './builder'
 export { parseCircuit, stringifyCircuit, FILE_EXTENSION, type ParseResult } from './serialize'
+export { missingPower, type PowerCause } from './hints'
