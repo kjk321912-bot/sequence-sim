@@ -1,7 +1,7 @@
 // 속성 창: 부품을 선택하면 캔버스 아래에 떠서 번호·a/b·설정값을 바꾼다
 import { useState } from 'react'
 import type { Component, LampColor, Phase } from '../engine'
-import { familyTags, suggestTag, tagFamily } from '../editor/palette'
+import { stepTag, tagFamily } from '../editor/palette'
 import { useEditor } from '../store/editorStore'
 import { PHASE_LABEL } from '../symbols/defs'
 import { Icon } from './Icon'
@@ -73,7 +73,6 @@ export function PropertyPanel() {
 }
 
 function Panel({ comp }: { comp: Component }) {
-  const circuit = useEditor((s) => s.circuit)
   const { updateComponent, rotateSelected, deleteSelected, select } = useEditor.getState()
   const update = (patch: Partial<Component>) => updateComponent(comp.id, patch)
   const family = tagFamily(comp)
@@ -95,14 +94,7 @@ function Panel({ comp }: { comp: Component }) {
         </div>
       </div>
 
-      {'tag' in comp && family && (
-        <TagField
-          value={comp.tag}
-          options={familyTags(circuit, family)}
-          suggestion={suggestTag(circuit, family, comp.kind === 'lamp' ? comp.color : undefined)}
-          onChange={(tag) => update({ tag })}
-        />
-      )}
+      {'tag' in comp && family && <TagField value={comp.tag} onChange={(tag) => update({ tag })} />}
 
       {comp.kind === 'contact' && (
         <Row label="접점">
@@ -221,59 +213,53 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-/** 번호: 직접 입력 + 같은 계열 번호 고르기 + 새 번호 */
-function TagField({
-  value,
-  options,
-  suggestion,
-  onChange,
-}: {
-  value: string
-  options: string[]
-  suggestion: string
-  onChange: (tag: string) => void
-}) {
+/** 번호: 직접 입력 + 오른쪽 ▲▼ 버튼으로 번호 올리기·내리기 */
+function TagField({ value, onChange }: { value: string; onChange: (tag: string) => void }) {
   const [text, setText] = useState(value)
   const commit = (t: string) => {
     const tag = cleanTag(t)
     if (tag && tag !== value) onChange(tag)
     setText(tag || value)
   }
-  const choose = (t: string) => {
-    setText(t)
-    onChange(t)
+  const step = (delta: 1 | -1) => {
+    const tag = stepTag(cleanTag(text) || value, delta)
+    setText(tag)
+    onChange(tag)
   }
   return (
     <Row label="번호">
-      <input
-        className="props-input"
-        value={text}
-        inputMode="text"
-        autoCapitalize="characters"
-        autoComplete="off"
-        spellCheck={false}
-        maxLength={8}
-        onChange={(e) => {
-          setText(e.target.value)
-          const tag = cleanTag(e.target.value)
-          if (tag) onChange(tag)
-        }}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-        }}
-      />
-      <div className="chips">
-        {options.map((t) => (
-          <button key={t} className={`chip ${t === value ? 'on' : ''}`} onClick={() => choose(t)}>
-            {t}
-          </button>
-        ))}
-        {!options.includes(suggestion) && (
-          <button className="chip add" onClick={() => choose(suggestion)} title="새 번호">
-            + {suggestion}
-          </button>
-        )}
+      <div className="tag-field">
+        <input
+          className="props-input"
+          value={text}
+          inputMode="text"
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={8}
+          onChange={(e) => {
+            setText(e.target.value)
+            const tag = cleanTag(e.target.value)
+            if (tag) onChange(tag)
+          }}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            else if (e.key === 'ArrowUp') {
+              e.preventDefault()
+              step(1)
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault()
+              step(-1)
+            }
+          }}
+        />
+        <button className="arrow" onClick={() => step(1)} aria-label="번호 올리기" title="번호 올리기">
+          ▲
+        </button>
+        <button className="arrow" onClick={() => step(-1)} aria-label="번호 내리기" title="번호 내리기">
+          ▼
+        </button>
       </div>
     </Row>
   )

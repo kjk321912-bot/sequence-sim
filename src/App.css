@@ -320,26 +320,16 @@ button:disabled {
   font-size: 16px;
 }
 
-.chips {
+.tag-field {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
-.chip {
-  padding: 0 14px;
-  border-radius: 999px;
-  font-weight: 700;
-}
-
-.chip.on {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #06121e;
-}
-
-.chip.add {
-  border-style: dashed;
+.tag-field .arrow {
+  width: var(--touch-min);
+  padding: 0;
+  font-size: 16px;
   color: var(--accent);
 }
 

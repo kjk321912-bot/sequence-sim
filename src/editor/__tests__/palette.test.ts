@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { emptyCircuit, type Circuit } from '../../engine'
 import { componentCenter, useEditor } from '../../store/editorStore'
-import { familyTags, latestTag, nextTag, PALETTE, suggestTag, tagFamily } from '../palette'
+import { familyTags, latestTag, nextTag, PALETTE, stepTag, suggestTag, tagFamily } from '../palette'
 
 const place = (key: string, x = 10, y = 10) => useEditor.getState().addFromPalette(key, { x, y })!
 const comp = (id: string) => useEditor.getState().circuit.components.find((c) => c.id === id)!
@@ -103,5 +103,24 @@ describe('번호 계열 (속성 창의 번호 선택지)', () => {
     const id = place('xA')
     useEditor.getState().updateComponent(id, { tag: 'X7', type: 'b' })
     expect(comp(id)).toMatchObject({ tag: 'X7', type: 'b', kind: 'contact' })
+  })
+})
+
+describe('번호 올리기·내리기 (▲▼)', () => {
+  it('번호를 1씩 올리고 내린다', () => {
+    expect(stepTag('X1', 1)).toBe('X2')
+    expect(stepTag('X2', -1)).toBe('X1')
+    expect(stepTag('PB0', 1)).toBe('PB1')
+  })
+
+  it('1에서 내리면 번호 없는 이름, 번호 없는 이름에서 올리면 1', () => {
+    expect(stepTag('X1', -1)).toBe('X')
+    expect(stepTag('X', -1)).toBe('X')
+    expect(stepTag('EOCR', 1)).toBe('EOCR1')
+  })
+
+  it('숫자만 있으면 1 아래로 내려가지 않는다', () => {
+    expect(stepTag('1', -1)).toBe('1')
+    expect(stepTag('9', 1)).toBe('10')
   })
 })

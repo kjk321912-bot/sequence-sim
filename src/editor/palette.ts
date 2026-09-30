@@ -153,6 +153,20 @@ function latestPlain(circuit: Circuit, base: string): string {
   return found[found.length - 1] ?? base
 }
 
+/**
+ * 번호 올리기·내리기 (속성 창 ▲▼ 버튼)
+ * X1 ▲ → X2,  X2 ▼ → X1,  X1 ▼ → X(번호 없음),  X ▲ → X1
+ * 머리글자 없이 숫자만 있으면 1 아래로는 내려가지 않는다.
+ */
+export function stepTag(tag: string, delta: 1 | -1): string {
+  const m = /^(.*?)(\d*)$/.exec(tag)
+  const prefix = m?.[1] ?? tag
+  const num = m?.[2] ? Number(m[2]) : 0
+  const next = num + delta
+  if (!prefix) return String(Math.max(1, next))
+  return next <= 0 ? prefix : `${prefix}${next}`
+}
+
 /** 보통 하나만 쓰는 기기: 번호 없는 이름부터 */
 const PLAIN_FAMILIES: TagFamily[] = ['selector', 'flicker', 'eocr', 'fls', 'buzzer', 'mccb', 'lamp']
 
