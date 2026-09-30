@@ -1,9 +1,9 @@
 // 편집기 상태 (Zustand)
 import { create } from 'zustand'
-import { rotate, type Circuit, type Component, type Point, type Rotation } from '../engine'
+import type { Circuit, Component, Point, Rotation } from '../engine'
 import { PALETTE } from '../editor/palette'
 import { showcaseCircuit } from '../examples/showcase'
-import { symbolOf } from '../symbols/defs'
+import { componentCenter, findFreeSpot } from '../editor/placement'
 
 export interface View {
   /** 화면 픽셀 기준 이동량 */
@@ -22,9 +22,14 @@ export interface EditorStore {
   setView: (v: View) => void
   setCircuit: (c: Circuit) => void
   select: (id: string | null) => void
-  /** 팔레트 부품을 격자 좌표 at(부품 중심)에 놓는다. 새 부품 id를 돌려준다 */
-  addFromPalette: (key: string, at: Point) => string | null
+  /**
+   * 팔레트 부품을 격자 좌표 at(부품 중심)에 놓는다. 새 부품 id를 돌려준다.
+   * findSpot이면 at 근처에서 다른 부품·배선과 겹치지 않는 자리를 찾는다 (톡 쳐서 놓기).
+   */
+  addFromPalette: (key: string, at: Point, findSpot?: boolean) => string | null
   moveComponent: (id: string, x: number, y: number) => void
+  /** 부품 속성 변경 (번호, a/b, 설정값 등) */
+  updateComponent: (id: string, patch: Partial<Component>) => void
   rotateSelected: () => void
   deleteSelected: () => void
 }
@@ -43,12 +48,7 @@ function loadAutosave(): Circuit | null {
 let idSeq = 0
 const newId = (p: string) => `${p}${Date.now().toString(36)}${(idSeq++).toString(36)}`
 
-/** 부품 기호 영역의 중심 (격자 좌표, 회전 반영) */
-export function componentCenter(c: Component): Point {
-  const { box } = symbolOf(c)
-  const local = rotate({ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 }, c.rot)
-  return { x: c.x + local.x, y: c.y + local.y }
-}
+export { componentCenter }
 
 const updateComp = (circuit: Circuit, id: string, f: (c: Component) => Component): Circuit => ({
   ...circuit,
@@ -64,18 +64,22 @@ export const useEditor = create<EditorStore>((set, get) => ({
   setCircuit: (circuit) => set({ circuit, selection: null }),
   select: (selection) => set({ selection }),
 
-  addFromPalette: (key, at) => {
+  addFromPalette: (key, at, findSpot = false) => {
     const item = PALETTE.find((p) => p.key === key)
     if (!item) return null
     const { circuit } = get()
     const draft = { ...item.make(circuit), id: newId('c'), x: 0, y: 0, rot: 0 as Rotation } as Component
     const center = componentCenter(draft)
-    const comp = { ...draft, x: Math.round(at.x - center.x), y: Math.round(at.y - center.y) }
+    const pos = findSpot ? findFreeSpot(circuit, draft, at) : { x: Math.round(at.x - center.x), y: Math.round(at.y - center.y) }
+    const comp = { ...draft, ...pos }
     set({ circuit: { ...circuit, components: [...circuit.components, comp] }, selection: comp.id })
     return comp.id
   },
 
   moveComponent: (id, x, y) => set({ circuit: updateComp(get().circuit, id, (c) => ({ ...c, x, y })) }),
+
+  updateComponent: (id, patch) =>
+    set({ circuit: updateComp(get().circuit, id, (c) => ({ ...c, ...patch, id: c.id, kind: c.kind }) as Component) }),
 
   rotateSelected: () => {
     const { selection, circuit } = get()

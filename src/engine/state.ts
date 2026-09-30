@@ -14,6 +14,13 @@ export interface CounterState {
   input: boolean
 }
 
+export interface FlickerState {
+  /** 코일이 여자된 뒤 누적된 시간(ms) */
+  elapsed: number
+  /** 출력 상태: true면 a접점 닫힘·b접점 열림 */
+  on: boolean
+}
+
 export interface ThrState {
   tripped: boolean
   /** 과부하·결상이 지속된 시간(ms) */
@@ -29,21 +36,28 @@ export interface SimState {
   coils: Record<string, boolean>
   timers: Record<string, TimerState>
   counters: Record<string, CounterState>
+  flickers: Record<string, FlickerState>
+  /** 과부하 보호계전기(THR·EOCR) 상태. tag 기준 */
   thr: Record<string, ThrState>
+  /** 용단된 퓨즈 (부품 id 기준) */
+  blownFuses: Record<string, boolean>
 }
 
 export const resetKey = (tag: string) => `${tag}#리셋`
+/** 플로트레스·EOCR처럼 "전원이 들어와 있는가"만 의미 있는 부하의 코일 키 */
+export const powerKey = (tag: string) => `${tag}#전원`
 
 export function initialState(): SimState {
-  return { time: 0, inputs: {}, coils: {}, timers: {}, counters: {}, thr: {} }
+  return { time: 0, inputs: {}, coils: {}, timers: {}, counters: {}, flickers: {}, thr: {}, blownFuses: {} }
 }
 
 export type Action =
   | { type: 'press'; tag: string } // 푸시버튼 누름 / 리밋 스위치 동작
   | { type: 'release'; tag: string } // 손을 뗌
-  | { type: 'toggle'; tag: string } // 셀렉터·MCCB 전환
-  | { type: 'thrTrip'; tag: string } // 열동계전기 트립 (고장 모의)
-  | { type: 'thrReset'; tag: string } // 열동계전기 리셋 버튼
+  | { type: 'toggle'; tag: string } // 셀렉터·MCCB 전환, 플로트레스 수위 감지
+  | { type: 'thrTrip'; tag: string } // THR·EOCR 트립 (고장 모의 / EOCR 테스트 버튼)
+  | { type: 'thrReset'; tag: string } // THR·EOCR 리셋 버튼
+  | { type: 'fuseReplace' } // 용단된 퓨즈를 모두 새것으로 교체
 
 export function applyAction(s: SimState, a: Action): SimState {
   switch (a.type) {
@@ -57,5 +71,7 @@ export function applyAction(s: SimState, a: Action): SimState {
       return { ...s, thr: { ...s.thr, [a.tag]: { tripped: true, heat: s.thr[a.tag]?.heat ?? 0 } } }
     case 'thrReset':
       return { ...s, thr: { ...s.thr, [a.tag]: { tripped: false, heat: 0 } } }
+    case 'fuseReplace':
+      return { ...s, blownFuses: {} }
   }
 }

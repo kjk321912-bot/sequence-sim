@@ -1,56 +1,96 @@
-// 기호 모음 예제: 모든 부품이 들어간 전동기 운전 회로 (처음 실행 시 표시)
+// 첫 화면 예제: 공개도면 스타일의 전동기 자동·수동 운전 회로 (직접 구성한 예제)
+//
+// 주회로: L1·L2·L3 → MCCB → EOCR → MC1 주접점 → M1
+// 조작 전원: L1·L3에서 퓨즈 F1·F2를 거쳐 위·아래 제어선으로
+// 조작회로
+//   - EOCR 전원 / EOCR-a → FR, FR-a → YL, FR-b → BZ (과부하 경보: YL·BZ 교대)
+//   - EOCR-b 이후
+//     자동: SS(A) → FLS 전원,  SS(A) → FLS-a → X,  X-a → MC1
+//     수동: SS(M) → PB0 → PB1 ∥ T순시-a → T,  T순시-a → MC1,  T한시-a → GL
+//     MC1-a → RL,  MC1-b → WL
 import { CircuitBuilder, TWO_TERMINAL_SPAN, type Circuit } from '../engine'
 
 export function showcaseCircuit(): Circuit {
   const b = new CircuitBuilder()
   const S = TWO_TERMINAL_SPAN
 
-  // ── 주회로: R·S·T → MCCB → MC1 주접점 → THR1 히터 → 전동기
-  b.bus('R', 0, 0, 14)
-  b.bus('S', 0, 1, 14)
-  b.bus('T', 0, 2, 14)
-  b.add({ kind: 'mccb', x: 4, y: 5, tag: 'MCCB' })
-  b.wire([4, 0], [4, 5])
-  b.wire([6, 1], [6, 5])
-  b.wire([8, 2], [8, 5])
-  b.add({ kind: 'mcMain', x: 4, y: 5 + S, tag: 'MC1' })
-  b.add({ kind: 'thrHeater', x: 4, y: 5 + 2 * S, tag: 'THR1', tripTime: 5000 })
-  b.add({ kind: 'motor', x: 4, y: 5 + 3 * S, tag: 'M1' })
+  // ── 주회로
+  b.bus('R', 0, 0, 12)
+  b.bus('S', 0, 1, 12)
+  b.bus('T', 0, 2, 12)
+  b.add({ kind: 'mccb', x: 2, y: 5, tag: 'MCCB' })
+  b.wire([2, 0], [2, 5])
+  b.wire([4, 1], [4, 5])
+  b.wire([6, 2], [6, 5])
+  b.add({ kind: 'thrHeater', relay: 'eocr', x: 2, y: 12, tag: 'EOCR', tripTime: 3000 })
+  b.wire([2, 8], [2, 12])
+  b.wire([4, 8], [4, 12])
+  b.wire([6, 8], [6, 12])
+  b.add({ kind: 'mcMain', x: 2, y: 12 + S, tag: 'MC1' })
+  b.add({ kind: 'motor', x: 2, y: 12 + 2 * S, tag: 'M1' })
 
-  // ── 조작회로
+  // ── 조작 전원: L1 → F1 → 위 제어선,  L3 → F2 → 아래 제어선
   const top = 0
-  const bottom = 18
-  b.bus('P', 20, top, 66)
-  b.bus('N', 20, bottom, 66)
-  const pb = (tag: string, type: 'a' | 'b') => (x: number, y: number) => b.contact(x, y, 'pb', type, tag)
-  const ct = (device: Parameters<CircuitBuilder['contact']>[2], type: 'a' | 'b', tag: string) => (x: number, y: number) =>
-    b.contact(x, y, device, type, tag)
+  const bottom = 24
+  b.wire([2, 9], [9, 9])
+  b.add({ kind: 'fuse', x: 9, y: 9, rot: 270, tag: 'F1' })
+  b.wire([12, 9], [16, 9], [16, top], [26, top])
+  b.wire([6, 11], [9, 11])
+  b.add({ kind: 'fuse', x: 9, y: 11, rot: 270, tag: 'F2' })
+  b.wire([12, 11], [15, 11], [15, bottom], [64, bottom])
 
-  // 1. 자기유지: THR1-b → 정지 PB0 → 기동 PB1 ∥ MC1-a → MC1
-  const r1 = b.rung(24, top, bottom, [ct('thr', 'b', 'THR1'), pb('PB0', 'b'), pb('PB1', 'a'), (x, y) => b.coil(x, y, 'mc', 'MC1')])
-  const y1 = r1[2]!.top
-  b.contact(27, y1, 'mc', 'a', 'MC1')
-  b.wire([24, y1], [27, y1])
-  b.wire([27, y1 + S], [24, y1 + S])
+  // EOCR-b를 위 제어선에 가로로 넣는다
+  b.add({ kind: 'contact', x: 26, y: top, rot: 270, device: 'eocr', type: 'b', tag: 'EOCR' })
+  b.wire([29, top], [64, top])
 
-  // 2~4. 운전(RL)·정지(GL)·과부하 경보(BZ)
-  b.rung(32, top, bottom, [ct('mc', 'a', 'MC1'), (x, y) => b.lamp(x, y, 'RL')])
-  b.rung(37, top, bottom, [ct('mc', 'b', 'MC1'), (x, y) => b.lamp(x, y, 'GL')])
-  b.rung(42, top, bottom, [ct('thr', 'a', 'THR1'), (x, y) => b.add({ kind: 'buzzer', x, y, tag: 'BZ' })])
+  type Dev = Parameters<CircuitBuilder['contact']>[2]
+  const ct = (device: Dev, type: 'a' | 'b', tag: string) => (x: number, y: number) => b.contact(x, y, device, type, tag)
 
-  // 5~6. 셀렉터로 타이머 기동 → 3초 뒤 YL
-  b.rung(47, top, bottom, [ct('selector', 'a', 'SS1'), (x, y) => b.coil(x, y, 'timer', 'T1', 3000)])
-  b.rung(52, top, bottom, [ct('timer', 'a', 'T1'), (x, y) => b.lamp(x, y, 'YL')])
+  // ── EOCR 전원과 과부하 경보
+  b.rung(18, top, bottom, [(x, y) => b.coil(x, y, 'eocr', 'EOCR')])
+  b.wire([22, top], [22, 1])
+  b.contact(22, 1, 'eocr', 'a', 'EOCR')
+  b.wire([22, 4], [22, 6], [30, 6])
+  b.wire([22, 6], [22, 8])
+  b.coil(22, 8, 'flicker', 'FR', 1000)
+  b.wire([22, 11], [22, bottom])
+  for (const [x, type, load] of [
+    [26, 'a', 'YL'],
+    [30, 'b', 'BZ'],
+  ] as const) {
+    b.wire([x, 6], [x, 8])
+    b.contact(x, 8, 'flicker', type, 'FR')
+    if (load === 'BZ') b.add({ kind: 'buzzer', x, y: 11, tag: 'BZ' })
+    else b.lamp(x, 11, 'YL')
+    b.wire([x, 14], [x, bottom])
+  }
 
-  // 7~9. 리밋 스위치 3회 → WL, PB2로 리셋
-  b.rung(57, top, bottom, [ct('limit', 'a', 'LS1'), (x, y) => b.coil(x, y, 'counter', 'C1', 3)])
-  b.rung(62, top, bottom, [pb('PB2', 'a'), (x, y) => b.coil(x, y, 'counterReset', 'C1')])
-  b.rung(67, top, bottom, [ct('counter', 'a', 'C1'), (x, y) => b.lamp(x, y, 'WL')])
+  // ── 자동 운전: SS(A) → FLS, FLS-a → X
+  b.rung(34, top, bottom, [ct('selector', 'a', 'SS'), (x, y) => b.add({ kind: 'fls', x, y, tag: 'FLS' })])
+  b.rung(38, top, bottom, [ct('selector', 'a', 'SS'), ct('fls', 'a', 'FLS'), (x, y) => b.coil(x, y, 'relay', 'X')])
 
-  // 10~12. 릴레이 X1과 나머지 b접점들
-  b.rung(72, top, bottom, [pb('PB3', 'a'), (x, y) => b.coil(x, y, 'relay', 'X1')])
-  b.rung(77, top, bottom, [ct('relay', 'a', 'X1'), ct('timer', 'b', 'T1'), ct('counter', 'b', 'C1'), (x, y) => b.lamp(x, y, 'GL', 'GL2')])
-  b.rung(82, top, bottom, [ct('relay', 'b', 'X1'), ct('selector', 'b', 'SS1'), ct('limit', 'b', 'LS1'), (x, y) => b.lamp(x, y, 'RL', 'RL2')])
+  // ── 수동 운전: SS(M) → PB0 → PB1 ∥ T순시-a → T
+  const manual = b.rung(42, top, bottom, [
+    ct('selector', 'b', 'SS'),
+    ct('pb', 'b', 'PB0'),
+    ct('pb', 'a', 'PB1'),
+    (x, y) => b.coil(x, y, 'timer', 'T', 3000),
+  ])
+  const pb1 = manual[2]!.top
+  b.contact(44, pb1, 'timerInst', 'a', 'T')
+  b.wire([42, pb1], [44, pb1])
+  b.wire([44, pb1 + S], [42, pb1 + S])
 
-  return b.build('기호 모음')
+  // ── MC1: X-a ∥ T순시-a
+  b.rung(48, top, bottom, [ct('relay', 'a', 'X'), (x, y) => b.coil(x, y, 'mc', 'MC1')])
+  b.contact(50, 1, 'timerInst', 'a', 'T')
+  b.wire([48, 1], [50, 1])
+  b.wire([50, 1 + S], [48, 1 + S])
+
+  // ── 표시등
+  b.rung(54, top, bottom, [ct('timer', 'a', 'T'), (x, y) => b.lamp(x, y, 'GL')])
+  b.rung(58, top, bottom, [ct('mc', 'a', 'MC1'), (x, y) => b.lamp(x, y, 'RL')])
+  b.rung(62, top, bottom, [ct('mc', 'b', 'MC1'), (x, y) => b.lamp(x, y, 'WL')])
+
+  return b.build('예제: 전동기 자동·수동 운전')
 }

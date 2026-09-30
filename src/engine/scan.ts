@@ -11,7 +11,7 @@
 import type { Circuit, Component, ContactDevice } from './model'
 import { buildGraph, type Graph } from './netlist'
 import { solve, type Solution } from './solver'
-import { applyAction, initialState, resetKey, type Action, type SimState } from './state'
+import { applyAction, initialState, powerKey, resetKey, type Action, type SimState } from './state'
 
 export const MAX_ITERATIONS = 32
 
@@ -27,6 +27,7 @@ export interface StepResult {
 interface Index {
   timerPreset: Map<string, number>
   counterPreset: Map<string, number>
+  flickerPreset: Map<string, number>
   faultOpen: Set<string>
   faultWelded: Set<string>
 }
@@ -34,15 +35,18 @@ interface Index {
 function buildIndex(circuit: Circuit): Index {
   const timerPreset = new Map<string, number>()
   const counterPreset = new Map<string, number>()
+  const flickerPreset = new Map<string, number>()
   for (const c of circuit.components) {
     if (c.kind !== 'coil') continue
     if (c.device === 'timer') timerPreset.set(c.tag, c.preset ?? 0)
     if (c.device === 'counter') counterPreset.set(c.tag, c.preset ?? 1)
+    if (c.device === 'flicker') flickerPreset.set(c.tag, Math.max(50, c.preset ?? 1000))
   }
   const faults = circuit.faults ?? []
   return {
     timerPreset,
     counterPreset,
+    flickerPreset,
     faultOpen: new Set(faults.flatMap((f) => (f.kind === 'contactOpen' ? [f.compId] : []))),
     faultWelded: new Set(faults.flatMap((f) => (f.kind === 'contactWelded' ? [f.compId] : []))),
   }
@@ -64,10 +68,18 @@ function deviceActive(ix: Index, s: SimState, device: ContactDevice, tag: string
       return !!s.coils[tag]
     case 'timer':
       return !!s.timers[tag]?.done
+    case 'timerInst':
+      return !!s.coils[tag]
     case 'counter':
       return counterDone(ix, s, tag)
+    case 'flicker':
+      return !!s.flickers[tag]?.on
     case 'thr':
+    case 'eocr':
       return !!s.thr[tag]?.tripped
+    case 'fls':
+      // 플로트레스: 전원이 들어와 있고 수위를 감지했을 때만 동작
+      return !!s.coils[powerKey(tag)] && !!s.inputs[tag]
   }
 }
 
@@ -89,6 +101,9 @@ function poleStates(ix: Index, s: SimState, c: Component): boolean[] {
     case 'thrHeater':
       states = [true, true, true]
       break
+    case 'fuse':
+      states = [!s.blownFuses[c.id]]
+      break
     default:
       return []
   }
@@ -101,8 +116,12 @@ function poleStates(ix: Index, s: SimState, c: Component): boolean[] {
 function coilsFrom(circuit: Circuit, sol: Solution): Record<string, boolean> {
   const coils: Record<string, boolean> = {}
   for (const c of circuit.components) {
-    if (c.kind !== 'coil') continue
-    const key = c.device === 'counterReset' ? resetKey(c.tag) : c.tag
+    let key: string
+    if (c.kind === 'fls') key = powerKey(c.tag)
+    else if (c.kind !== 'coil') continue
+    else if (c.device === 'counterReset') key = resetKey(c.tag)
+    else if (c.device === 'eocr') key = powerKey(c.tag)
+    else key = c.tag
     coils[key] = !!coils[key] || !!sol.energized[c.id]
   }
   return coils
@@ -134,7 +153,12 @@ function applyCoils(ix: Index, s: SimState, coils: Record<string, boolean>): Sim
     else if (input && !prev.input) count++ // 계수 입력의 상승 에지마다 +1
     counters[tag] = { count, input }
   }
-  return { ...s, coils, timers, counters }
+  const flickers = { ...s.flickers }
+  for (const tag of ix.flickerPreset.keys()) {
+    if (!coils[tag]) flickers[tag] = { elapsed: 0, on: false }
+    else if (!s.coils[tag]) flickers[tag] = { elapsed: 0, on: true } // 여자되는 순간 a접점부터 동작
+  }
+  return { ...s, coils, timers, counters, flickers }
 }
 
 /** 시간 진행: 여자 중인 타이머 누적 */
@@ -146,7 +170,14 @@ function advanceTimers(ix: Index, s: SimState, dt: number): SimState {
     const elapsed = (timers[tag]?.elapsed ?? 0) + dt
     timers[tag] = { elapsed, done: elapsed >= preset }
   }
-  return { ...s, time: s.time + dt, timers }
+  const flickers = { ...s.flickers }
+  for (const [tag, period] of ix.flickerPreset) {
+    if (!s.coils[tag]) continue
+    const elapsed = (flickers[tag]?.elapsed ?? 0) + dt
+    // 설정 시간마다 출력 반전: [0, period) 동작, [period, 2·period) 복귀 …
+    flickers[tag] = { elapsed, on: Math.floor(elapsed / period) % 2 === 0 }
+  }
+  return { ...s, time: s.time + dt, timers, flickers }
 }
 
 /**
@@ -180,12 +211,10 @@ function updateThermal(circuit: Circuit, graph: Graph, s: SimState, sol: Solutio
   return thr === s.thr ? s : { ...s, thr }
 }
 
-/** 한 스캔 주기 실행 */
-export function step(circuit: Circuit, graph: Graph, prev: SimState, dt: number): StepResult {
-  const ix = buildIndex(circuit)
-  let s = advanceTimers(ix, prev, dt)
+/** 코일 상태가 바뀌지 않을 때까지 통전 계산을 반복한다 */
+function settle(circuit: Circuit, graph: Graph, ix: Index, start: SimState) {
+  let s = start
   const closedOf = (c: Component) => poleStates(ix, s, c)
-
   let solution = solve(circuit, graph, closedOf)
   let iterations = 1
   const changedLate = new Set<string>()
@@ -206,9 +235,27 @@ export function step(circuit: Circuit, graph: Graph, prev: SimState, dt: number)
     iterations++
   }
   const oscillating = iterations > MAX_ITERATIONS ? [...changedLate].sort() : []
-
-  s = updateThermal(circuit, graph, s, solution, dt)
   return { state: s, solution, oscillating, iterations }
+}
+
+/** 한 스캔 주기 실행 */
+export function step(circuit: Circuit, graph: Graph, prev: SimState, dt: number): StepResult {
+  const ix = buildIndex(circuit)
+  let result = settle(circuit, graph, ix, advanceTimers(ix, prev, dt))
+
+  // 퓨즈 용단: 단락 전류가 지나간 퓨즈를 끊고 다시 계산한다 (퓨즈가 단락을 차단)
+  for (let round = 0; round < 4; round++) {
+    const blow = circuit.components.filter(
+      (c) => c.kind === 'fuse' && result.solution.shortThrough[c.id] && !result.state.blownFuses[c.id],
+    )
+    if (!blow.length) break
+    const blownFuses = { ...result.state.blownFuses }
+    for (const c of blow) blownFuses[c.id] = true
+    result = settle(circuit, graph, ix, { ...result.state, blownFuses })
+  }
+
+  const state = updateThermal(circuit, graph, result.state, result.solution, dt)
+  return { ...result, state }
 }
 
 /**

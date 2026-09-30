@@ -39,6 +39,8 @@ export interface Solution {
   closed: Record<string, boolean[]>
   /** 도체 부품에 전류가 흐르는지 (접점 통전 표시용) */
   conducting: Record<string, boolean>
+  /** 단락 전류가 지나가는 도체 부품 (퓨즈 용단 판정용) */
+  shortThrough: Record<string, boolean>
   /** 부하(코일·램프·부저) 여자 여부 */
   energized: Record<string, boolean>
   motors: Record<string, MotorRun>
@@ -63,6 +65,7 @@ function loadPins(c: Component, burnt: Set<string>): string[] {
       return burnt.has(c.id) ? [] : ['1', '2']
     case 'lamp':
     case 'buzzer':
+    case 'fls':
       return ['1', '2']
     case 'motor':
       return ['U', 'V', 'W']
@@ -246,9 +249,12 @@ export function solve(circuit: Circuit, graph: Graph, closedOf: (c: Component) =
   })
 
   const conducting: Record<string, boolean> = {}
+  const shortThrough: Record<string, boolean> = {}
   poleEdges.forEach((pe, i) => {
-    if (edgeState[graph.edges.length + i]) conducting[pe.compId] = true
+    const st = edgeState[graph.edges.length + i]
+    if (st) conducting[pe.compId] = true
+    if (st === 'short') shortThrough[pe.compId] = true
   })
 
-  return { nodePotential, group, closed, conducting, energized, motors, segments, shorts }
+  return { nodePotential, group, closed, conducting, shortThrough, energized, motors, segments, shorts }
 }

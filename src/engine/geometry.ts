@@ -9,7 +9,7 @@ export const TWO_TERMINAL_SPAN = 3
 export const POLE_PITCH = 2
 
 export interface Pin {
-  /** 핀 이름. 2단자: '1'(위) '2'(아래), 3극: 'L1'~'L3'(위) 'T1'~'T3'(아래), 모터: 'U' 'V' 'W' */
+  /** 핀 이름. 2단자: '1'(위) '2'(아래), 3극: 'L1'~'L3'(위) 'T1'~'T3'(아래), 모터: 'U' 'V' 'W', 단자대: '1'~'n', 접지: 'E' */
   name: string
   x: number
   y: number
@@ -38,6 +38,8 @@ function localPins(c: Component): Pin[] {
     case 'coil':
     case 'lamp':
     case 'buzzer':
+    case 'fls':
+    case 'fuse':
       return [
         { name: '1', x: 0, y: 0 },
         { name: '2', x: 0, y: TWO_TERMINAL_SPAN },
@@ -55,6 +57,11 @@ function localPins(c: Component): Pin[] {
         { name: 'V', x: POLE_PITCH, y: 0 },
         { name: 'W', x: 2 * POLE_PITCH, y: 0 },
       ]
+    case 'terminalBlock':
+      // 단자마다 연결점 하나. 위·아래 어느 쪽에서 배선해도 같은 단자
+      return c.labels.map((_, i) => ({ name: String(i + 1), x: i * POLE_PITCH, y: 0 }))
+    case 'ground':
+      return [{ name: 'E', x: 0, y: 0 }]
   }
 }
 
@@ -77,11 +84,12 @@ export function busSegment(c: Component & { kind: 'bus' }): [Point, Point] {
 
 /**
  * 도체로 동작하는 부품의 극(도통 경로) 목록. [위 핀, 아래 핀] 쌍.
- * 접점·차단기·주접점·히터가 해당한다. 부하(코일·램프 등)는 도체가 아니다.
+ * 접점·퓨즈·차단기·주접점·히터가 해당한다. 부하(코일·램프 등)는 도체가 아니다.
  */
 export function polesOf(c: Component): [string, string][] {
   switch (c.kind) {
     case 'contact':
+    case 'fuse':
       return [['1', '2']]
     case 'mccb':
     case 'mcMain':

@@ -47,13 +47,8 @@ function PaletteButton({ item, onGhost }: { item: PaletteItem; onGhost: (g: Ghos
       if (!inside) return
       store.addFromPalette(item.key, screenToGrid(store.view, clientX - rect.left, clientY - rect.top))
     } else {
-      // 톡 치기: 화면 가운데. 같은 자리에 이미 부품이 있으면 옆으로 비켜 놓는다
-      const center = screenToGrid(store.view, rect.width / 2, rect.height / 2)
-      const taken = (x: number) =>
-        store.circuit.components.some((c) => Math.abs(c.x - Math.round(x)) < 2 && Math.abs(c.y - Math.round(center.y)) < 2)
-      let x = center.x
-      for (let i = 0; i < 12 && taken(x); i++) x += 4
-      store.addFromPalette(item.key, { x, y: center.y })
+      // 톡 치기: 화면 가운데 근처의 빈 자리
+      store.addFromPalette(item.key, screenToGrid(store.view, rect.width / 2, rect.height / 2), true)
     }
   }
 

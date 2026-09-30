@@ -217,3 +217,173 @@ button:disabled {
     display: none;
   }
 }
+
+/* ── 캔버스 영역 + 속성 창 ────────── */
+.canvas-area {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.props {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 24px));
+  max-height: 60%;
+  overflow-y: auto;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 50%);
+  backdrop-filter: blur(8px);
+}
+
+.props-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.props-head strong {
+  font-size: 16px;
+}
+
+.props-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.props-actions button {
+  padding: 0 10px;
+}
+
+.props-actions .danger {
+  color: var(--danger);
+}
+
+.props-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.props-label {
+  flex-shrink: 0;
+  width: 76px;
+  padding-top: 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.props-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.props-input {
+  width: 110px;
+  height: var(--touch-min);
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.props-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.props-input.num {
+  width: 76px;
+  text-align: center;
+}
+
+.props-input.wide {
+  width: 260px;
+  font-size: 16px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.chip.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #06121e;
+}
+
+.chip.add {
+  border-style: dashed;
+  color: var(--accent);
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.segmented button {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+.segmented button.on {
+  background: var(--bg-raised);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper button {
+  width: var(--touch-min);
+  padding: 0;
+  font-size: 22px;
+}
+
+.stepper .unit {
+  color: var(--text-dim);
+}
+
+@media (max-width: 700px) {
+  .props-label {
+    width: 56px;
+  }
+}

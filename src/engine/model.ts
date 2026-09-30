@@ -24,9 +24,13 @@ export type ContactDevice =
   | 'limit' // 리밋 스위치
   | 'relay' // 릴레이 X
   | 'mc' // 전자접촉기 MC 보조접점
-  | 'timer' // 타이머 T 한시접점
+  | 'timer' // 타이머 T 한시접점 (설정 시간 뒤 동작)
+  | 'timerInst' // 타이머 T 순시접점 (코일과 동시에 동작)
   | 'counter' // 카운터 C 접점
+  | 'flicker' // 플리커릴레이 FR 접점 (설정 시간마다 교대)
   | 'thr' // 열동계전기 THR 접점
+  | 'eocr' // 전자식 과전류계전기 EOCR 접점
+  | 'fls' // 플로트레스 스위치 FLS 접점 (수위 감지)
 
 export type CoilDevice =
   | 'relay' // 릴레이 X
@@ -34,6 +38,8 @@ export type CoilDevice =
   | 'timer' // ON 딜레이 타이머
   | 'counter' // 카운터 계수 입력
   | 'counterReset' // 카운터 리셋 입력
+  | 'flicker' // 플리커릴레이 FR
+  | 'eocr' // EOCR 조작 전원 (표시용 부하, 동작에는 영향 없음)
 
 export type LampColor = 'RL' | 'GL' | 'YL' | 'WL'
 
@@ -64,7 +70,7 @@ export interface CoilComp extends Base {
   kind: 'coil'
   device: CoilDevice
   tag: string
-  /** 타이머: 설정 시간(ms), 카운터: 설정 횟수. 그 외에는 무시 */
+  /** 타이머: 설정 시간(ms), 카운터: 설정 횟수, 플리커: 전환 간격(ms). 그 외에는 무시 */
   preset?: number
 }
 
@@ -91,11 +97,40 @@ export interface McMainComp extends Base {
   tag: string
 }
 
-/** 열동계전기 히터 (3극, 항상 도통). 과부하·결상이 tripTime(ms) 지속되면 트립 */
+/**
+ * 과부하 보호계전기 주회로부 (3극, 항상 도통). 과부하·결상이 tripTime(ms) 지속되면 트립.
+ * relay: 'thr' = 열동계전기 히터, 'eocr' = 전자식 과전류계전기(공개도면 방식). 동작은 같다.
+ */
 export interface ThrHeaterComp extends Base {
   kind: 'thrHeater'
   tag: string
   tripTime: number
+  relay?: 'thr' | 'eocr'
+}
+
+/** 플로트레스 스위치 FLS: 전원이 공급된 상태에서 수위를 감지하면 FLS 접점이 동작 */
+export interface FlsComp extends Base {
+  kind: 'fls'
+  tag: string
+}
+
+/** 퓨즈: 평소에는 도체, 단락 전류가 흐르면 용단(끊어짐) */
+export interface FuseComp extends Base {
+  kind: 'fuse'
+  tag: string
+}
+
+/** 단자대: 단자마다 독립된 연결점 (표시·배선 정리용) */
+export interface TerminalBlockComp extends Base {
+  kind: 'terminalBlock'
+  tag: string
+  /** 단자 이름 (L1, L2, L3, PE 등). 개수 = 단자 수 */
+  labels: string[]
+}
+
+/** 접지(보호도체) 표시 */
+export interface GroundComp extends Base {
+  kind: 'ground'
 }
 
 /** 3상 유도전동기 (U·V·W 단자) */
@@ -116,6 +151,10 @@ export type Component =
   | McMainComp
   | ThrHeaterComp
   | MotorComp
+  | FlsComp
+  | FuseComp
+  | TerminalBlockComp
+  | GroundComp
 
 export type ComponentKind = Component['kind']
 

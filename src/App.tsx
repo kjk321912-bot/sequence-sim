@@ -3,6 +3,7 @@ import './App.css'
 import { EditorCanvas } from './editor/EditorCanvas'
 import { useEditor } from './store/editorStore'
 import { Palette } from './ui/Palette'
+import { PropertyPanel } from './ui/PropertyPanel'
 import { Toolbar } from './ui/Toolbar'
 
 export default function App() {
@@ -12,7 +13,10 @@ export default function App() {
       <Toolbar />
       <main className="workspace">
         <Palette />
-        <EditorCanvas />
+        <div className="canvas-area">
+          <EditorCanvas />
+          <PropertyPanel />
+        </div>
       </main>
     </div>
   )

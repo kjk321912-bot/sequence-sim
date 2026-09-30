@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { emptyCircuit, type Circuit } from '../../engine'
 import { componentCenter, useEditor } from '../../store/editorStore'
-import { latestTag, nextTag, PALETTE } from '../palette'
+import { familyTags, latestTag, nextTag, PALETTE, suggestTag, tagFamily } from '../palette'
 
 const place = (key: string, x = 10, y = 10) => useEditor.getState().addFromPalette(key, { x, y })!
 const comp = (id: string) => useEditor.getState().circuit.components.find((c) => c.id === id)!
@@ -69,5 +69,39 @@ describe('편집 동작', () => {
     useEditor.getState().deleteSelected()
     expect(useEditor.getState().circuit.components.some((c) => c.id === id)).toBe(false)
     expect(useEditor.getState().selection).toBeNull()
+  })
+})
+
+describe('번호 계열 (속성 창의 번호 선택지)', () => {
+  beforeEach(() => useEditor.getState().setCircuit(emptyCircuit()))
+
+  it('릴레이 코일과 릴레이 접점은 같은 계열로 묶인다', () => {
+    place('xCoil')
+    place('xCoil')
+    const contact = place('xB')
+    const circuit = useEditor.getState().circuit
+    expect(familyTags(circuit, tagFamily(comp(contact))!)).toEqual(['X1', 'X2'])
+  })
+
+  it('타이머 코일·한시접점·순시접점은 같은 계열', () => {
+    place('tCoil')
+    const inst = place('tiA')
+    expect(tagFamily(comp(inst))).toBe('timer')
+    expect(comp(inst)).toMatchObject({ tag: 'T1', device: 'timerInst' })
+  })
+
+  it('EOCR·FR처럼 하나만 쓰는 기기는 번호 없이 시작하고 두 번째부터 번호가 붙는다', () => {
+    const e1 = place('eocrMain')
+    const e2 = place('eocrMain')
+    expect(comp(e1)).toMatchObject({ tag: 'EOCR' })
+    expect(comp(e2)).toMatchObject({ tag: 'EOCR2' })
+    expect(suggestTag(useEditor.getState().circuit, 'eocr')).toBe('EOCR3')
+    expect(suggestTag(useEditor.getState().circuit, 'relay')).toBe('X1')
+  })
+
+  it('속성 변경으로 번호와 a/b를 바꿀 수 있다', () => {
+    const id = place('xA')
+    useEditor.getState().updateComponent(id, { tag: 'X7', type: 'b' })
+    expect(comp(id)).toMatchObject({ tag: 'X7', type: 'b', kind: 'contact' })
   })
 })

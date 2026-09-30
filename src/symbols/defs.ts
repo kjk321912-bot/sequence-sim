@@ -41,6 +41,8 @@ export interface SymbolVisual {
   motor?: MotorRun
   /** 모터 회전 표시 각도(도) */
   motorAngle?: number
+  /** 퓨즈 용단 */
+  blown?: boolean
 }
 
 const rad = (d: number) => (d * Math.PI) / 180
@@ -120,15 +122,22 @@ function contact(c: ContactComp, v: SymbolVisual): SymbolDef {
       prims.push({ t: 'line', pts: [bx + 0.03, mid - 0.14, bx + 0.22, mid, bx + 0.03, mid + 0.14] })
       reach = bx + 0.22
       break
-    case 'thr': // 열동계전기 접점: 막대 위의 ×
-      prims.push({ t: 'line', pts: [bx - 0.1, mid - 0.1, bx + 0.1, mid + 0.1] })
-      prims.push({ t: 'line', pts: [bx - 0.1, mid + 0.1, bx + 0.1, mid - 0.1] })
-      reach = bx + 0.1
+    case 'thr': // 보호계전기(THR·EOCR) 접점: 막대 위의 ×
+    case 'eocr':
+      prims.push({ t: 'line', pts: [bx - 0.12, mid - 0.12, bx + 0.12, mid + 0.12] })
+      prims.push({ t: 'line', pts: [bx - 0.12, mid + 0.12, bx + 0.12, mid - 0.12] })
+      reach = bx + 0.12
+      break
+    case 'flicker': // 플리커릴레이 접점: 막대 위의 채운 마름모 ◆
+      prims.push({ t: 'line', pts: [bx, mid - 0.16, bx + 0.13, mid, bx, mid + 0.16, bx - 0.13, mid], closed: true, fill: colors.symbol })
+      reach = bx + 0.13
       break
     case 'limit':
     case 'relay':
     case 'mc':
     case 'counter':
+    case 'timerInst': // 타이머 순시접점은 표시 없이 막대만
+    case 'fls':
       break
   }
   // 이름표는 a접점 기준 위치에 고정 (동작해도 글자가 흔들리지 않게)
@@ -297,7 +306,9 @@ export function symbolOf(c: Component, v: SymbolVisual = {}): SymbolDef {
             ? `${c.preset ?? 1}회`
             : c.device === 'counterReset'
               ? '리셋'
-              : null
+              : c.device === 'flicker'
+                ? `${(c.preset ?? 1000) / 1000}초`
+                : null
       const on = !!v.energized
       return circleSymbol(c.tag, {
         ...(on ? { stroke: colors.wireFlow, glow: colors.wireFlow, textColor: colors.wireFlow } : {}),
@@ -314,5 +325,64 @@ export function symbolOf(c: Component, v: SymbolVisual = {}): SymbolDef {
       return threePole(c.kind, c.tag, !!v.active)
     case 'motor':
       return motor(c.tag, v)
+    case 'fls': {
+      const on = !!v.energized
+      return circleSymbol(c.tag, on ? { stroke: colors.wireFlow, glow: colors.wireFlow, textColor: colors.wireFlow } : {})
+    }
+    case 'fuse':
+      return fuse(c.tag, !!v.blown)
+    case 'terminalBlock':
+      return terminalBlock(c.tag, c.labels)
+    case 'ground':
+      return ground()
+  }
+}
+
+// ─── 기타 ──────────────────────────────────────────────
+
+/** 퓨즈: 사선을 그은 가는 사각형 (공개도면 FUSE 표기). 용단되면 빨간색으로 끊어진 모양 */
+function fuse(tag: string, blown: boolean): SymbolDef {
+  const w = 0.2
+  const color = blown ? colors.danger : undefined
+  const prims: Prim[] = [
+    { t: 'line', pts: [0, 0, 0, 0.95] },
+    { t: 'line', pts: [0, 2.05, 0, 3] },
+    { t: 'line', pts: [-w, 0.95, w, 0.95, w, 2.05, -w, 2.05], closed: true, w: 2, color, fill: colors.bg },
+  ]
+  if (blown) {
+    prims.push({ t: 'line', pts: [0, 0.95, 0, 1.35], color })
+    prims.push({ t: 'line', pts: [0, 1.65, 0, 2.05], color })
+    prims.push({ t: 'text', x: w + 0.2, y: 2.4, text: '용단', size: 0.45, align: 'left', color: colors.danger, bold: true })
+  } else {
+    prims.push({ t: 'line', pts: [-w, 1.95, w, 1.05] })
+  }
+  prims.push(label(w + 0.2, 1.5, tag))
+  return { prims, box: { x0: -0.45, y0: 0, x1: w + 0.3 + textWidth(tag, LABEL), y1: 3 } }
+}
+
+/** 단자대: 단자(○)가 든 가로 사각형, 단자 위에 단자 이름 */
+function terminalBlock(tag: string, labels: string[]): SymbolDef {
+  const n = Math.max(1, labels.length)
+  const x1 = (n - 1) * 2 + 0.6
+  const prims: Prim[] = [{ t: 'line', pts: [-0.6, -0.45, x1, -0.45, x1, 0.45, -0.6, 0.45], closed: true, w: 1.5, fill: colors.bg }]
+  labels.forEach((l, i) => {
+    prims.push({ t: 'circle', x: i * 2, y: 0, r: 0.16, w: 1.6 })
+    prims.push({ t: 'text', x: i * 2, y: -0.85, text: l, size: 0.42, align: 'center', color: colors.symbolLabel, bold: true })
+  })
+  const w = textWidth(tag, LABEL)
+  prims.push({ t: 'text', x: -0.8 - w, y: 0, text: tag, size: LABEL, align: 'left', color: colors.symbolLabel, bold: true })
+  return { prims, box: { x0: -0.9 - w, y0: -1.2, x1: x1 + 0.1, y1: 0.6 } }
+}
+
+/** 접지(보호도체) */
+function ground(): SymbolDef {
+  return {
+    prims: [
+      { t: 'line', pts: [0, 0, 0, 0.8] },
+      { t: 'line', pts: [-0.5, 0.8, 0.5, 0.8] },
+      { t: 'line', pts: [-0.32, 1.0, 0.32, 1.0] },
+      { t: 'line', pts: [-0.14, 1.2, 0.14, 1.2] },
+    ],
+    box: { x0: -0.6, y0: 0, x1: 0.6, y1: 1.4 },
   }
 }
