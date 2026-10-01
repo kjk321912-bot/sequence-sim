@@ -5,14 +5,33 @@ import { useEditor } from '../store/editorStore'
 /** 파일 이름에 쓸 수 없는 글자 정리 */
 const safeName = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '_').trim() || '회로'
 
-/** 현재 회로를 파일로 내려받는다 (태블릿: 다운로드 폴더) */
-export function saveToFile() {
+/** 아이패드·아이폰 (최신 아이패드는 Mac처럼 보이므로 터치 지점 수로 구분) */
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+/** 현재 회로를 파일로 내려받는다 (갤탭: 다운로드 폴더, 아이패드: 공유 → 파일에 저장) */
+export async function saveToFile() {
   const { circuit, showToast } = useEditor.getState()
   const blob = new Blob([stringifyCircuit(circuit)], { type: 'application/json' })
+  const fileName = `${safeName(circuit.name)}${FILE_EXTENSION}`
+
+  // iOS 홈 화면 앱에서는 다운로드 링크가 동작하지 않으므로 공유 시트로 저장한다
+  if (isIOS()) {
+    const file = new File([blob], fileName, { type: 'application/json' })
+    if (navigator.canShare?.({ files: [file] })) {
+      showToast("공유 메뉴에서 '파일에 저장'을 고르세요")
+      try {
+        await navigator.share({ files: [file] })
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === 'AbortError')) showToast('파일을 저장하지 못했습니다', 'error')
+      }
+      return
+    }
+  }
+
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${safeName(circuit.name)}${FILE_EXTENSION}`
+  a.download = fileName
   document.body.appendChild(a)
   a.click()
   a.remove()

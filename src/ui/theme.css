@@ -29,6 +29,13 @@ body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* iOS: 길게 누를 때 뜨는 복사·공유 메뉴와 돋보기 끄기 (길게 누르기 = 속성 창) */
+  -webkit-touch-callout: none;
+  /* iOS: 두 번 톡 쳐서 확대 끄기 */
+  touch-action: manipulation;
+  /* iOS: 가로·세로 전환 때 글자 크기 자동 키우기 끄기 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 button {
