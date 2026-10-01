@@ -663,3 +663,277 @@ button:disabled {
     opacity: 0;
   }
 }
+
+/* ── 과제 탭 ───────────────────────── */
+.task-panel {
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  flex-shrink: 0;
+  min-height: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--line);
+}
+
+.task-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 12px 24px;
+  scrollbar-width: thin;
+}
+
+.task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--touch-min);
+}
+
+.task-head strong {
+  font-size: 18px;
+}
+
+.task-head .rec {
+  color: var(--danger);
+}
+
+.task-note {
+  margin: 6px 0 10px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.task-group {
+  margin: 14px 0 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.task-grid button {
+  padding: 0 8px;
+  font-size: 15px;
+}
+
+.task-desc {
+  margin: 4px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.task-desc summary {
+  min-height: 32px;
+  color: var(--accent);
+  font-weight: 600;
+  line-height: 32px;
+  cursor: pointer;
+}
+
+.task-desc p {
+  margin: 6px 0 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.task-controls,
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-actions {
+  margin-top: 14px;
+}
+
+.task-controls button,
+.task-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-panel button.primary {
+  border-color: var(--wire-flow);
+  color: var(--wire-flow);
+  font-weight: 700;
+}
+
+.task-summary {
+  margin: 12px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.task-summary.pass {
+  border-color: var(--wire-flow);
+  color: var(--wire-flow);
+  background: color-mix(in srgb, var(--wire-flow) 14%, var(--bg-panel));
+}
+
+.task-summary.fail {
+  border-color: var(--danger);
+  color: #ffd7d7;
+  background: color-mix(in srgb, var(--danger) 18%, var(--bg-panel));
+}
+
+.task-summary.playing {
+  color: var(--accent);
+}
+
+.task-problem,
+.task-hint {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.task-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-steps .step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.task-steps .step.current {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.task-steps .icon {
+  width: 18px;
+  flex: none;
+  text-align: center;
+}
+
+.task-steps .time {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-steps .step.check {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+}
+
+.task-steps .check > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+}
+
+.task-steps .check > button:disabled {
+  cursor: default;
+  filter: none;
+}
+
+.task-steps .check.ok .icon {
+  color: var(--wire-flow);
+}
+
+.task-steps .check.bad .icon,
+.task-steps .check .miss {
+  color: var(--danger);
+}
+
+.task-steps .check.current > button {
+  background: var(--bg-raised);
+}
+
+.task-steps .miss {
+  padding: 0 8px 6px 34px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.task-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.task-field textarea {
+  min-height: 140px;
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+}
+
+.task-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  min-height: 40px;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+}
+
+@media (max-width: 700px) {
+  .task-panel {
+    width: auto;
+    height: 45%;
+    border-right: none;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.task-field .props-input {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.task-field textarea.props-input {
+  height: auto;
+  line-height: 1.5;
+}

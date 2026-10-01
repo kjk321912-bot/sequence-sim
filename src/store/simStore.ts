@@ -8,8 +8,10 @@ import { buildGraph, initialState, missingPower, operate, step, type Action, typ
 import { isInputAction, powerHintText } from '../modes/run/operate'
 import { useEditor } from './editorStore'
 
-export type Mode = 'edit' | 'run'
+export type Mode = 'edit' | 'run' | 'task'
 export type Speed = 1 | 5
+/** 회로가 돌아가는 모드 (실행·과제) */
+export const isSimMode = (m: Mode) => m !== 'edit'
 
 /** 한 번에 진행하는 최대 시뮬레이션 시간(ms): 타이머 정밀도 */
 const SUB_STEP_MS = 20
@@ -22,6 +24,8 @@ export interface SimStore {
   speed: Speed
   /** 화면 표시용 결과 (보이는 상태가 바뀔 때만 새 객체) */
   result: StepResult | null
+  /** 과제 채점 재생 중: 시간은 재생기가 advanceExact로만 진행한다 (화면 rAF의 advance는 무시) */
+  driven: boolean
 
   setMode: (m: Mode) => void
   setPaused: (p: boolean) => void
@@ -35,6 +39,9 @@ export interface SimStore {
   act: (a: Action, compId?: string | null) => void
   /** 실제 경과 시간(ms)만큼 진행 (일시정지·배속 반영) */
   advance: (realMs: number) => void
+  /** 일시정지·배속과 상관없이 시뮬레이션 시간 ms만큼 진행 (과제 재생용) */
+  advanceExact: (simMs: number) => void
+  setDriven: (d: boolean) => void
 }
 
 // 매 프레임 바뀌는 값 (반응형 아님)
@@ -45,6 +52,12 @@ let shownKey = ''
 
 /** 애니메이션 레이어가 매 프레임 읽는 최신 결과 */
 export const liveResult = () => live
+
+/** 조작 기록용 (과제 만들기): 조작할 때마다 조작 직전 시뮬레이션 시각과 함께 알려 준다 */
+let actionListener: ((time: number, a: Action) => void) | null = null
+export function setActionListener(fn: typeof actionListener) {
+  actionListener = fn
+}
 
 function currentGraph(circuit: Circuit): Graph {
   if (!graph || graphOf !== circuit) {
@@ -105,10 +118,11 @@ export const useSim = create<SimStore>((set, get) => ({
   paused: false,
   speed: 1,
   result: null,
+  driven: false,
 
   setMode: (mode) => {
     if (mode === get().mode) return
-    if (mode === 'run') {
+    if (isSimMode(mode)) {
       const ed = useEditor.getState()
       ed.select(null)
       ed.setTool('select')
@@ -118,13 +132,13 @@ export const useSim = create<SimStore>((set, get) => ({
     } else {
       live = null
       shownKey = ''
-      set({ mode, result: null })
+      set({ mode, result: null, driven: false })
     }
   },
   setPaused: (paused) => set({ paused }),
   setSpeed: (speed) => set({ speed }),
   reset: () => {
-    if (get().mode !== 'run') return
+    if (!isSimMode(get().mode)) return
     set({ paused: false })
     restart()
   },
@@ -135,12 +149,13 @@ export const useSim = create<SimStore>((set, get) => ({
     if (compId) hintNoPower(live, a, compId)
     const circuit = useEditor.getState().circuit
     live = operate(circuit, currentGraph(circuit), live.state, a)
+    actionListener?.(prev.state.time, a)
     publish(prev)
   },
 
   advance: (realMs) => {
-    const { paused, speed } = get()
-    if (!live || paused || realMs <= 0) return
+    const { paused, speed, driven } = get()
+    if (!live || paused || driven || realMs <= 0) return
     const prev = live
     let left = Math.min(realMs, MAX_FRAME_MS) * speed
     while (left > 0) {
@@ -151,6 +166,14 @@ export const useSim = create<SimStore>((set, get) => ({
     }
     publish(prev)
   },
+
+  advanceExact: (simMs) => {
+    if (!live) return
+    const prev = live
+    for (let left = simMs; left > 0; left -= SUB_STEP_MS) run(live.state, Math.min(SUB_STEP_MS, left))
+    publish(prev)
+  },
+  setDriven: (driven) => set({ driven }),
 }))
 
 /** 퓨즈 용단·보호계전기 트립처럼 한 번 일어나는 사건을 알림으로 */

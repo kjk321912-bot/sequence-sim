@@ -9,3 +9,18 @@ export { step, operate, contactActivity, Simulator, MAX_ITERATIONS, type StepRes
 export { CircuitBuilder } from './builder'
 export { parseCircuit, stringifyCircuit, FILE_EXTENSION, type ParseResult } from './serialize'
 export { missingPower, type PowerCause } from './hints'
+export {
+  makeTask,
+  gradeTask,
+  readOutputs,
+  starterCircuit,
+  partsSummary,
+  describeStep,
+  outputText,
+  scriptFromRecording,
+  TASK_STEP_MS,
+  type ScriptItem,
+  type Grade,
+  type CheckResult,
+  type CheckItem,
+} from './task'

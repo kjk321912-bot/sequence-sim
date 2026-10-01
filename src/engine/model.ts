@@ -171,12 +171,46 @@ export type Fault =
   | { kind: 'contactWelded'; compId: string } // 접점 융착 (항상 닫힘)
   | { kind: 'coilBurnt'; compId: string } // 코일 소손 (여자되지 않음)
 
+/** 과제 출력: 램프·부저는 켜짐/꺼짐, 전동기는 회전 상태 */
+export type OutputKind = 'lamp' | 'buzzer' | 'motor'
+export type OutputValue = 'on' | 'off' | 'fwd' | 'rev' | 'stop' | 'singlePhase'
+
+export interface Expectation {
+  /** 부품 번호 (RL, BZ, M1 …) */
+  tag: string
+  kind: OutputKind
+  value: OutputValue
+}
+
+/** 과제 시나리오의 한 단계 */
+export type TaskStep =
+  | { kind: 'action'; action: TaskAction }
+  | { kind: 'wait'; ms: number }
+  | { kind: 'check'; expect: Expectation[] }
+
+/** 시나리오에서 하는 조작 (사람이 하는 조작만) */
+export type TaskAction =
+  | { type: 'press' | 'release' | 'toggle'; tag: string }
+  | { type: 'thrTrip' | 'thrReset'; tag: string }
+
+/**
+ * 과제: 동작 조건(설명)과 입력 시나리오, 시점마다 기대 출력.
+ * 기대 출력은 교사의 정답 회로를 시나리오대로 돌려서 만든다 (학생 파일에는 정답 회로가 들어가지 않는다).
+ */
+export interface Task {
+  title: string
+  description: string
+  steps: TaskStep[]
+}
+
 export interface Circuit {
   version: number
   name: string
   components: Component[]
   wires: Wire[]
   faults?: Fault[]
+  /** 과제 모드에서 채점할 과제 */
+  task?: Task
 }
 
 export function emptyCircuit(name = '새 회로'): Circuit {

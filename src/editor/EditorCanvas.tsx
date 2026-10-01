@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Layer, Line, Shape, Stage } from 'react-konva'
 import { buildGraph, pinsOf, type Circuit, type Point } from '../engine'
 import { AnimLayer, RunLabels, RunWires } from '../modes/run/RunLayers'
+import { TaskMarks } from '../modes/task/TaskMarks'
 import { visualsOf } from '../modes/run/visuals'
 import { useEditor, type View } from '../store/editorStore'
-import { useSim } from '../store/simStore'
+import { isSimMode, useSim } from '../store/simStore'
 import { KonvaSymbol } from '../symbols/KonvaSymbol'
 import { colors, GRID } from '../ui/theme'
 import { useCanvasGestures } from './useCanvasGestures'
@@ -21,7 +22,8 @@ export function EditorCanvas() {
   const selection = useEditor((s) => s.selection)
   const tool = useEditor((s) => s.tool)
   const draftWire = useEditor((s) => s.draftWire)
-  const running = useSim((s) => s.mode === 'run')
+  const running = useSim((s) => isSimMode(s.mode))
+  const taskMode = useSim((s) => s.mode === 'task')
   const result = useSim((s) => s.result)
   const run = running && result ? result : null
   const wiring = !run && (tool === 'wire' || !!draftWire)
@@ -87,6 +89,7 @@ export function EditorCanvas() {
                 <RunLabels circuit={circuit} result={run} />
               </Layer>
               <AnimLayer circuit={circuit} result={run} />
+              {taskMode && <TaskMarks circuit={circuit} />}
             </>
           ) : (
             <Layer listening={false}>

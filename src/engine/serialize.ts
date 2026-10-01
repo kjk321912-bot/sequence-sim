@@ -68,6 +68,20 @@ export function parseCircuit(text: string): ParseResult {
     ids.add(w.id)
   }
 
+  let task: Circuit['task']
+  if (data.task !== undefined) {
+    const t = data.task
+    const stepOk = (s: unknown) =>
+      isObj(s) &&
+      ((s.kind === 'wait' && isNum(s.ms)) ||
+        (s.kind === 'action' && isObj(s.action) && typeof s.action.tag === 'string' && typeof s.action.type === 'string') ||
+        (s.kind === 'check' && Array.isArray(s.expect)))
+    if (!isObj(t) || typeof t.title !== 'string' || typeof t.description !== 'string' || !Array.isArray(t.steps) || !t.steps.every(stepOk)) {
+      return { ok: false, error: '과제 정보가 올바르지 않습니다' }
+    }
+    task = t as unknown as Circuit['task']
+  }
+
   return {
     ok: true,
     circuit: {
@@ -76,6 +90,7 @@ export function parseCircuit(text: string): ParseResult {
       components: data.components as unknown as Component[],
       wires: data.wires as unknown as Circuit['wires'],
       ...(Array.isArray(data.faults) ? { faults: data.faults as Circuit['faults'] } : {}),
+      ...(task ? { task } : {}),
     },
   }
 }

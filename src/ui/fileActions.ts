@@ -1,5 +1,5 @@
 // 회로 파일 저장·불러오기 (브라우저 다운로드 / 파일 선택)
-import { FILE_EXTENSION, parseCircuit, stringifyCircuit } from '../engine'
+import { FILE_EXTENSION, parseCircuit, starterCircuit, stringifyCircuit, type Circuit } from '../engine'
 import { useEditor } from '../store/editorStore'
 
 /** 파일 이름에 쓸 수 없는 글자 정리 */
@@ -8,11 +8,23 @@ const safeName = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '_').trim() || '회�
 /** 아이패드·아이폰 (최신 아이패드는 Mac처럼 보이므로 터치 지점 수로 구분) */
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
-/** 현재 회로를 파일로 내려받는다 (갤탭: 다운로드 폴더, 아이패드: 공유 → 파일에 저장) */
-export async function saveToFile() {
-  const { circuit, showToast } = useEditor.getState()
+/**
+ * 학생에게 나눠 줄 과제 파일: 정답 회로 대신 모선·주회로만 남긴 시작 회로와 과제를 담는다.
+ * (교사 회로는 그대로 두므로, 정답은 '파일로 저장'으로 따로 보관한다)
+ */
+export function saveStudentFile() {
+  const { circuit } = useEditor.getState()
+  if (!circuit.task) return
+  const start = { ...starterCircuit(circuit), name: `과제: ${circuit.task.title}`, task: circuit.task }
+  return saveToFile(start, `${circuit.task.title} 과제`)
+}
+
+/** 현재 회로(또는 주어진 회로)를 파일로 내려받는다 (갤탭: 다운로드 폴더, 아이패드: 공유 → 파일에 저장) */
+export async function saveToFile(target?: Circuit, name?: string) {
+  const { showToast } = useEditor.getState()
+  const circuit = target ?? useEditor.getState().circuit
   const blob = new Blob([stringifyCircuit(circuit)], { type: 'application/json' })
-  const fileName = `${safeName(circuit.name)}${FILE_EXTENSION}`
+  const fileName = `${safeName(name ?? circuit.name)}${FILE_EXTENSION}`
 
   // iOS 홈 화면 앱에서는 다운로드 링크가 동작하지 않으므로 공유 시트로 저장한다
   if (isIOS()) {

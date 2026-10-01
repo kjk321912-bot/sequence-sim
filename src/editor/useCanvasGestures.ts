@@ -16,7 +16,7 @@ import { useEffect, type RefObject } from 'react'
 import type { Action, Circuit, Point } from '../engine'
 import { operationOf } from '../modes/run/operate'
 import { useEditor } from '../store/editorStore'
-import { liveResult, useSim } from '../store/simStore'
+import { isSimMode, liveResult, useSim } from '../store/simStore'
 import { GRID } from '../ui/theme'
 import { clampScale, screenToGrid, zoomAt } from './viewMath'
 import { chooseRoute, snapPoint, type Snap } from './wiring'
@@ -98,7 +98,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
       el.setPointerCapture(e.pointerId)
       const p = local(e)
       const store = useEditor.getState()
-      const running = useSim.getState().mode === 'run'
+      const running = isSimMode(useSim.getState().mode)
 
       // 실행 모드: 푸시버튼은 다른 손가락과 상관없이 바로 누른다 (화면 이동·핀치에 끼지 않음)
       let tap: Action | null = null
@@ -106,7 +106,8 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
         const hitComp = hitTest(p.x, p.y).compId
         const comp = store.circuit.components.find((c) => c.id === hitComp)
         const live = liveResult()
-        const op = comp && live ? operationOf(comp, live.state) : null
+        // 과제 채점 재생 중에는 손으로 조작하지 않는다
+        const op = comp && live && !useSim.getState().driven ? operationOf(comp, live.state) : null
         if (op?.kind === 'momentary') {
           pressed.set(e.pointerId, op.tag)
           useSim.getState().act({ type: 'press', tag: op.tag }, comp!.id)
@@ -144,7 +145,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
       longTimer = setTimeout(() => {
         if (mode.kind !== 'pending' || mode.id !== e.pointerId) return
         const target = mode.hit.compId ?? mode.hit.wireId
-        if (!target) return
+        if (!target || useSim.getState().driven) return
         useEditor.getState().select(target)
         navigator.vibrate?.(15)
         mode = { kind: 'held', id: e.pointerId }
@@ -223,7 +224,7 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
       const store = useEditor.getState()
 
       if (mode.kind === 'pending' && mode.id === e.pointerId && e.type === 'pointerup') {
-        if (useSim.getState().mode === 'run') {
+        if (isSimMode(useSim.getState().mode)) {
           // 실행 모드의 톡 치기는 조작. 속성 창은 닫는다
           store.select(null)
           if (mode.tap) {

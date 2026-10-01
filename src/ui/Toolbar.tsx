@@ -11,7 +11,7 @@ import { Icon, type IconName } from './Icon'
 const MODES = [
   { key: 'edit', label: '편집', ready: true },
   { key: 'run', label: '실행', ready: true },
-  { key: 'task', label: '과제', ready: false },
+  { key: 'task', label: '과제', ready: true },
   { key: 'fault', label: '고장진단', ready: false },
 ] as const
 

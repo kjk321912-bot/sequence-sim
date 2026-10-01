@@ -2,8 +2,10 @@ import { useEffect } from 'react'
 import './App.css'
 import { EditorCanvas } from './editor/EditorCanvas'
 import { RunBanner, RunControls } from './modes/run/RunControls'
+import { TaskPanel } from './modes/task/TaskPanel'
 import { useEditor } from './store/editorStore'
-import { useSim } from './store/simStore'
+import { isSimMode, useSim } from './store/simStore'
+import { useTask } from './store/taskStore'
 import { Palette } from './ui/Palette'
 import { PropertyPanel } from './ui/PropertyPanel'
 import { Toast } from './ui/Toast'
@@ -11,21 +13,36 @@ import { Toolbar } from './ui/Toolbar'
 
 export default function App() {
   useKeyboardShortcuts()
-  const running = useSim((s) => s.mode === 'run')
+  const running = useSim((s) => isSimMode(s.mode))
+  const taskMode = useSim((s) => s.mode === 'task')
+  const playing = useTask((s) => s.phase === 'playing')
   return (
     <div className="app">
       <Toolbar />
       <main className="workspace">
         {!running && <Palette />}
+        {taskMode && <TaskPanel />}
         <div className="canvas-area">
           <EditorCanvas />
-          {running && <RunControls />}
+          {running && !playing && <RunControls />}
+          {!running && <TaskChip />}
           {running && <RunBanner />}
           <PropertyPanel />
         </div>
       </main>
       <Toast />
     </div>
+  )
+}
+
+/** 편집 탭: 과제가 걸린 회로면 과제 이름과 채점 안내 */
+function TaskChip() {
+  const title = useEditor((s) => s.circuit.task?.title)
+  if (!title) return null
+  return (
+    <button className="task-chip" onClick={() => useSim.getState().setMode('task')}>
+      과제: {title} · 과제 탭에서 채점
+    </button>
   )
 }
 
@@ -50,7 +67,7 @@ function useKeyboardShortcuts() {
         s.redo()
       } else if (mod) {
         return
-      } else if (e.code === 'Space' && sim.mode === 'run') {
+      } else if (e.code === 'Space' && isSimMode(sim.mode) && !sim.driven) {
         e.preventDefault()
         sim.setPaused(!sim.paused)
       } else if (e.code === 'KeyR') s.rotateSelected()
