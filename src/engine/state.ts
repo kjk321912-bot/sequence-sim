@@ -41,6 +41,11 @@ export interface SimState {
   thr: Record<string, ThrState>
   /** 용단된 퓨즈 (부품 id 기준) */
   blownFuses: Record<string, boolean>
+  /**
+   * 전환 중인 스위치 (tag 기준). 스위치는 "끊고 나서 붙는" 구조라서 돌리거나 누르는 도중에는
+   * 같은 스위치의 a접점과 b접점이 잠깐 모두 열린다.
+   */
+  moving: Record<string, boolean>
 }
 
 export const resetKey = (tag: string) => `${tag}#리셋`
@@ -48,7 +53,7 @@ export const resetKey = (tag: string) => `${tag}#리셋`
 export const powerKey = (tag: string) => `${tag}#전원`
 
 export function initialState(): SimState {
-  return { time: 0, inputs: {}, coils: {}, timers: {}, counters: {}, flickers: {}, thr: {}, blownFuses: {} }
+  return { time: 0, inputs: {}, coils: {}, timers: {}, counters: {}, flickers: {}, thr: {}, blownFuses: {}, moving: {} }
 }
 
 export type Action =

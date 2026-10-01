@@ -13,6 +13,9 @@ export function ExamplePicker({ onClose, onOpened }: { onClose: () => void; onOp
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // 묶음(기초 회로·전동기 회로·공개문제)별로 나눠 보여 준다
+  const groups = [...new Set(EXAMPLES.map((e) => e.group))].map((g) => [g, EXAMPLES.filter((e) => e.group === g)] as const)
+
   const open = (ex: Example) => {
     const store = useEditor.getState()
     store.setCircuit(ex.make())
@@ -33,19 +36,26 @@ export function ExamplePicker({ onClose, onOpened }: { onClose: () => void; onOp
           </button>
         </div>
         <p className="dialog-note">열면 지금 회로 대신 예제가 열립니다 · 되돌리기로 이전 회로를 되살릴 수 있습니다</p>
-        <ul className="example-list">
-          {EXAMPLES.map((ex, i) => (
-            <li key={ex.key}>
-              <button className="example-item" onClick={() => open(ex)}>
-                <span className="example-num">{i + 1}</span>
-                <span>
-                  <strong>{ex.title}</strong>
-                  <small>{ex.summary}</small>
-                </span>
-              </button>
-            </li>
+        <div className="example-scroll">
+          {groups.map(([group, list]) => (
+            <section key={group}>
+              <h3 className="example-group">{group}</h3>
+              <ul className="example-list">
+                {list.map((ex, i) => (
+                  <li key={ex.key}>
+                    <button className="example-item" onClick={() => open(ex)}>
+                      <span className="example-num">{i + 1}</span>
+                      <span>
+                        <strong>{ex.title}</strong>
+                        <small>{ex.summary}</small>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   )

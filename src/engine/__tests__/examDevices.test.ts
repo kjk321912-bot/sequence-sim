@@ -35,28 +35,28 @@ describe('플리커릴레이', () => {
     return { circuit: b.build(), yl: yl!.id, bz: bz!.id }
   }
 
-  it('여자되면 a접점부터 동작하고, 설정 시간마다 a/b가 번갈아 전환된다', () => {
+  it('여자되면 b접점 쪽부터 동작하고, 설정 시간마다 a/b가 번갈아 전환된다', () => {
     const { circuit, yl, bz } = flicker()
     const sim = new Simulator(circuit)
     let r = sim.act({ type: 'toggle', tag: 'SS1' })
-    expect([r.solution.energized[yl], r.solution.energized[bz]]).toEqual([true, false])
-    r = sim.run(990)
-    expect([r.solution.energized[yl], r.solution.energized[bz]]).toEqual([true, false])
-    r = sim.run(20)
     expect([r.solution.energized[yl], r.solution.energized[bz]]).toEqual([false, true])
-    r = sim.run(1000)
+    r = sim.run(990)
+    expect([r.solution.energized[yl], r.solution.energized[bz]]).toEqual([false, true])
+    r = sim.run(20)
     expect([r.solution.energized[yl], r.solution.energized[bz]]).toEqual([true, false])
+    r = sim.run(1000)
+    expect([r.solution.energized[yl], r.solution.energized[bz]]).toEqual([false, true])
   })
 
   it('소자되면 복귀하고, 다시 여자되면 처음부터 시작한다', () => {
-    const { circuit, yl } = flicker()
+    const { circuit, bz } = flicker()
     const sim = new Simulator(circuit)
     sim.act({ type: 'toggle', tag: 'SS1' })
     sim.run(1500)
     sim.act({ type: 'toggle', tag: 'SS1' })
     expect(sim.state.flickers.FR).toEqual({ elapsed: 0, on: false })
     const r = sim.act({ type: 'toggle', tag: 'SS1' })
-    expect(r.solution.energized[yl]).toBe(true)
+    expect(r.solution.energized[bz]).toBe(true)
   })
 })
 
@@ -184,5 +184,27 @@ describe('퓨즈', () => {
     b.wire([14, 15], [14, 20])
     const sim = new Simulator(b.build())
     expect(sim.last.solution.energized[lamp]).toBe(true)
+  })
+})
+
+describe('스위치 전환 (끊고 나서 붙음)', () => {
+  it('셀렉터를 자동 → 수동으로 돌리면, 수동 쪽 자기유지 접점이 있어도 릴레이가 떨어진다', () => {
+    // SS(A) → X,  SS(M) → X-a → X  (자기유지 접점이 수동 쪽에만 있음)
+    const b = controlBoard()
+    b.wire([2, TOP], [2, 1])
+    b.contact(2, 1, 'selector', 'a', 'SS')
+    b.wire([2, 4], [2, 10])
+    b.coil(2, 10, 'relay', 'X')
+    b.wire([2, 13], [2, BOTTOM])
+    b.wire([6, TOP], [6, 1])
+    b.contact(6, 1, 'selector', 'b', 'SS')
+    b.wire([6, 4], [6, 5])
+    b.contact(6, 5, 'relay', 'a', 'X')
+    b.wire([6, 8], [6, 9], [2, 9])
+    const sim = new Simulator(b.build())
+    expect(sim.act({ type: 'toggle', tag: 'SS' }).state.coils.X).toBe(true)
+    const r = sim.act({ type: 'toggle', tag: 'SS' })
+    expect(r.state.coils.X).toBe(false)
+    expect(r.state.moving).toEqual({})
   })
 })

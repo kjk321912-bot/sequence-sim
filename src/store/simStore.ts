@@ -4,7 +4,7 @@
 // 매 프레임 계산 결과(live)는 반응형 상태에 넣지 않고, 화면에 보이는 것이 바뀔 때만
 // result를 갱신한다 (60fps로 캔버스 전체를 다시 그리지 않도록).
 import { create } from 'zustand'
-import { applyAction, buildGraph, initialState, missingPower, step, type Action, type Circuit, type Graph, type StepResult } from '../engine'
+import { buildGraph, initialState, missingPower, operate, step, type Action, type Circuit, type Graph, type StepResult } from '../engine'
 import { isInputAction, powerHintText } from '../modes/run/operate'
 import { useEditor } from './editorStore'
 
@@ -133,7 +133,8 @@ export const useSim = create<SimStore>((set, get) => ({
     if (!live) return
     const prev = live
     if (compId) hintNoPower(live, a, compId)
-    run(applyAction(live.state, a), 0)
+    const circuit = useEditor.getState().circuit
+    live = operate(circuit, currentGraph(circuit), live.state, a)
     publish(prev)
   },
 

@@ -601,13 +601,28 @@ button:disabled {
   font-size: 14px;
 }
 
+.example-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.example-group {
+  margin: 14px 0 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.example-group:first-child {
+  margin-top: 4px;
+}
+
 .example-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
 }
 

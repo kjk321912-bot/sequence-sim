@@ -15,6 +15,9 @@ import { applyAction, initialState, powerKey, resetKey, type Action, type SimSta
 
 export const MAX_ITERATIONS = 32
 
+/** 사람이 조작하는 스위치 (끊고 나서 붙는다) */
+const SWITCHES = new Set<ContactDevice>(['pb', 'selector', 'limit'])
+
 export interface StepResult {
   state: SimState
   solution: Solution
@@ -102,6 +105,11 @@ function poleStates(ix: Index, s: SimState, c: Component): boolean[] {
   let states: boolean[]
   switch (c.kind) {
     case 'contact': {
+      // 전환 도중인 스위치는 a·b접점이 모두 열려 있다
+      if (s.moving[c.tag] && SWITCHES.has(c.device)) {
+        states = [false]
+        break
+      }
       const active = deviceActive(ix, s, c.device, c.tag)
       states = [c.type === 'a' ? active : !active]
       break
@@ -170,7 +178,8 @@ function applyCoils(ix: Index, s: SimState, coils: Record<string, boolean>): Sim
   const flickers = { ...s.flickers }
   for (const tag of ix.flickerPreset.keys()) {
     if (!coils[tag]) flickers[tag] = { elapsed: 0, on: false }
-    else if (!s.coils[tag]) flickers[tag] = { elapsed: 0, on: true } // 여자되는 순간 a접점부터 동작
+    // 여자되는 순간에는 b접점 쪽이 동작 중이고, 설정 시간 뒤 a접점으로 넘어간다 (공개문제 동작 사항 기준)
+    else if (!s.coils[tag]) flickers[tag] = { elapsed: 0, on: false }
   }
   return { ...s, coils, timers, counters, flickers }
 }
@@ -188,8 +197,8 @@ function advanceTimers(ix: Index, s: SimState, dt: number): SimState {
   for (const [tag, period] of ix.flickerPreset) {
     if (!s.coils[tag]) continue
     const elapsed = (flickers[tag]?.elapsed ?? 0) + dt
-    // 설정 시간마다 출력 반전: [0, period) 동작, [period, 2·period) 복귀 …
-    flickers[tag] = { elapsed, on: Math.floor(elapsed / period) % 2 === 0 }
+    // 설정 시간마다 출력 반전: [0, period) b접점, [period, 2·period) a접점 …
+    flickers[tag] = { elapsed, on: Math.floor(elapsed / period) % 2 === 1 }
   }
   return { ...s, time: s.time + dt, timers, flickers }
 }
@@ -293,8 +302,9 @@ export class Simulator {
 
   /** 조작 후 즉시 안정 상태까지 스캔 */
   act(action: Action): StepResult {
-    this.state = applyAction(this.state, action)
-    return this.tick(0)
+    this.last = operate(this.circuit, this.graph, this.state, action)
+    this.state = this.last.state
+    return this.last
   }
 
   tick(dt: number): StepResult {
@@ -313,4 +323,33 @@ export class Simulator {
     }
     return this.last
   }
+}
+
+/**
+ * 사람의 조작 한 번을 반영하고 안정 상태까지 계산한다.
+ * 같은 번호의 a접점과 b접점이 함께 있는 스위치(셀렉터 A·M 등)는 "끊고 나서 붙는다":
+ * 전환 도중 두 접점이 모두 열린 순간을 한 번 계산해, 그때 떨어지는 자기유지는 떨어지게 한다.
+ * (예: 자동 → 수동으로 돌리면 자동 쪽 릴레이가 수동 쪽 자기유지 접점으로 붙어 있지 못한다)
+ */
+export function operate(circuit: Circuit, graph: Graph, prev: SimState, action: Action): StepResult {
+  let s = prev
+  if ((action.type === 'press' || action.type === 'release' || action.type === 'toggle') && hasBothContacts(circuit, action.tag)) {
+    s = step(circuit, graph, { ...s, moving: { ...s.moving, [action.tag]: true } }, 0).state
+    const moving = { ...s.moving }
+    delete moving[action.tag]
+    s = { ...s, moving }
+  }
+  return step(circuit, graph, applyAction(s, action), 0)
+}
+
+/** 같은 번호의 스위치 a접점과 b접점이 모두 있는가 */
+function hasBothContacts(circuit: Circuit, tag: string): boolean {
+  let a = false
+  let b = false
+  for (const c of circuit.components) {
+    if (c.kind !== 'contact' || c.tag !== tag || !SWITCHES.has(c.device)) continue
+    if (c.type === 'a') a = true
+    else b = true
+  }
+  return a && b
 }

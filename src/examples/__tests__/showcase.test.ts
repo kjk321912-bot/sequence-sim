@@ -51,15 +51,15 @@ describe('첫 화면 예제 회로', () => {
     expect(motor()).toBe('fwd')
   })
 
-  it('EOCR이 트립하면 전동기가 멈추고 YL과 BZ가 번갈아 동작한다', () => {
+  it('EOCR이 트립하면 전동기가 멈추고 BZ부터 YL과 번갈아 동작한다', () => {
     const { sim, lamp, motor, circuit } = setup()
     sim.act({ type: 'toggle', tag: 'MCCB' })
     sim.act({ type: 'press', tag: 'PB1' })
     sim.act({ type: 'thrTrip', tag: 'EOCR' })
     expect(motor()).toBe('stop')
     const bz = () => sim.last.solution.energized[idOf(circuit, 'buzzer', 'BZ')]
-    expect([lamp('YL'), bz()]).toEqual([true, false])
-    sim.run(1000)
     expect([lamp('YL'), bz()]).toEqual([false, true])
+    sim.run(1000)
+    expect([lamp('YL'), bz()]).toEqual([true, false])
   })
 })

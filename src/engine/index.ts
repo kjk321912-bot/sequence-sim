@@ -5,7 +5,7 @@ export { pinsOf, polesOf, busSegment, rotate, onSegment, pointKey, TWO_TERMINAL_
 export { buildGraph, terminalKey, type Graph } from './netlist'
 export { solve, isPowered, type Solution, type WireSegment, type WireState, type MotorRun, type Potential } from './solver'
 export { applyAction, initialState, resetKey, powerKey, type Action, type SimState } from './state'
-export { step, contactActivity, Simulator, MAX_ITERATIONS, type StepResult } from './scan'
+export { step, operate, contactActivity, Simulator, MAX_ITERATIONS, type StepResult } from './scan'
 export { CircuitBuilder } from './builder'
 export { parseCircuit, stringifyCircuit, FILE_EXTENSION, type ParseResult } from './serialize'
 export { missingPower, type PowerCause } from './hints'
