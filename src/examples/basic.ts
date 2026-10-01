@@ -44,7 +44,7 @@ export function selfHoldCircuit(): Circuit {
  */
 export function interlockCircuit(): Circuit {
   const b = new CircuitBuilder()
-  const width = 30
+  const width = 26
   b.bus('P', 0, TOP, 2)
   b.bus('N', 0, BOTTOM, width)
   // 정지 버튼 PB0: P모선 → PB0(가로) → 위 제어선

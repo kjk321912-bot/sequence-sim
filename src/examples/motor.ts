@@ -73,7 +73,7 @@ function motorBottom(b: CircuitBuilder, y: number) {
  */
 export function motorStartStopCircuit(): Circuit {
   const b = new CircuitBuilder()
-  const end = 54
+  const end = 50
   const { first, a, bc, startRung } = motorBase(b, end)
   b.add({ kind: 'mcMain', x: 2, y: 11, tag: 'MC' })
   b.wire([2, 14], [2, 18])
@@ -100,7 +100,7 @@ export function motorStartStopCircuit(): Circuit {
  */
 export function motorReversingCircuit(): Circuit {
   const b = new CircuitBuilder()
-  const end = 56
+  const end = 52
   const { first, a, startRung } = motorBase(b, end)
 
   // MC1(정회전) 1차측: MCCB 2차측 세로선에서 바로

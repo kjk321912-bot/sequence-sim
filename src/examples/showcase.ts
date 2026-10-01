@@ -37,11 +37,11 @@ export function showcaseCircuit(): Circuit {
   b.wire([12, 9], [16, 9], [16, top], [26, top])
   b.wire([6, 11], [9, 11])
   b.add({ kind: 'fuse', x: 9, y: 11, rot: 270, tag: 'F2' })
-  b.wire([12, 11], [15, 11], [15, bottom], [64, bottom])
+  b.wire([12, 11], [15, 11], [15, bottom], [62, bottom])
 
   // EOCR-b를 위 제어선에 가로로 넣는다
   b.add({ kind: 'contact', x: 26, y: top, rot: 270, device: 'eocr', type: 'b', tag: 'EOCR' })
-  b.wire([29, top], [64, top])
+  b.wire([29, top], [62, top])
 
   type Dev = Parameters<CircuitBuilder['contact']>[2]
   const ct = (device: Dev, type: 'a' | 'b', tag: string) => (x: number, y: number) => b.contact(x, y, device, type, tag)

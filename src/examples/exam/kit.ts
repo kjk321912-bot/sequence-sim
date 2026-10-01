@@ -54,7 +54,7 @@ const colX = (i: number) => X0 + PITCH * i
  * 공개문제 틀: 주회로 + 조작 전원 + EOCR 전원 열(0번 열)까지 그린다.
  * pb0OnTop이면 PB0(b)를 위 제어선에 EOCR-b와 나란히 둔다 (10~18번 유형).
  */
-export function examSheet(opts: { pb0OnTop: boolean; lastCol: number; eocrTrip?: number }): Sheet {
+export function examSheet(opts: { pb0OnTop: boolean; eocrTrip?: number }): Sheet {
   const b = new CircuitBuilder()
   const S = TWO_TERMINAL_SPAN
 
@@ -96,9 +96,8 @@ export function examSheet(opts: { pb0OnTop: boolean; lastCol: number; eocrTrip?:
     b.add({ kind: 'contact', x: lineStart, y: TOP, rot: 270, device: 'pb', type: 'b', tag: 'PB0' })
     lineStart += S
   }
-  const topXs = [lineStart]
-  for (let i = 2; i <= opts.lastCol; i++) if (colX(i) > lineStart) topXs.push(colX(i))
-  b.wire(...topXs.map((x): [number, number] => [x, TOP]))
+  /** 위 제어선에서 시작하는 열 (위 제어선은 마지막 열까지만 긋는다) */
+  const topCols = new Set<number>()
 
   // 아래 제어선: 부하 열마다 꺾인 점
   const loadCols = new Set<number>([0])
@@ -117,6 +116,7 @@ export function examSheet(opts: { pb0OnTop: boolean; lastCol: number; eocrTrip?:
 
     col: (i, from, parts, to) => {
       const x = colX(i)
+      if (from === TOP && i > 0) topCols.add(i)
       let y = from
       for (const [row, make] of parts) {
         const top = ROW[row]!
@@ -142,6 +142,8 @@ export function examSheet(opts: { pb0OnTop: boolean; lastCol: number; eocrTrip?:
     build: (name) => {
       // EOCR 전원 (0번 열): 위 제어선 → EOCR 전원 → 아래 제어선
       sheet.col(0, TOP, [], (x, y) => b.coil(x, y, 'eocr', 'EOCR'))
+      const topXs = [...topCols].sort((p, q) => p - q).map(colX).filter((x) => x > lineStart)
+      b.wire([lineStart, TOP], ...topXs.map((x): [number, number] => [x, TOP]))
       for (const i of loadCols) b.wire([colX(i), COIL + S], [colX(i), BOT])
       const xs = [...loadCols].sort((p, q) => p - q).map(colX)
       b.wire([FX + 3, 10], [FX + 5, 10], [FX + 5, BOT], ...xs.map((x): [number, number] => [x, BOT]))

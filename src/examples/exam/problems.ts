@@ -38,7 +38,7 @@ function mcLamps(s: Sheet, i: number) {
 }
 
 export function exam01(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrFlicker(s)
   // 자동: SS(A) → FLS 전원,  FLS-a → X
   s.col(4, j1, [], s.fls)
@@ -57,7 +57,7 @@ export function exam01(): Circuit {
 }
 
 export function exam02(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrAlarm(s)
   s.col(3, j1, [], s.fls)
   s.col(4, TOP, [[0, s.a('selector', 'SS')], [2, s.a('fls', 'FLS')]], s.relay('X'))
@@ -76,7 +76,7 @@ export function exam02(): Circuit {
 }
 
 export function exam03(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 10 })
+  const s = examSheet({ pb0OnTop: false })
   eocrAlarm(s)
   // X-a ∥ (SS(A) → FLS-a) → FR,  FR-b → MC1,  FR-a → MC2
   s.col(3, j2, [[3, s.bc('flicker', 'FR')]], s.mc('MC1'))
@@ -96,7 +96,7 @@ export function exam03(): Circuit {
 }
 
 export function exam04(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrAlarm(s)
   s.col(3, j1, [], s.fls)
   s.col(4, TOP, [[0, s.a('selector', 'SS')], [2, s.a('fls', 'FLS')]], s.flicker('FR', 4000))
@@ -116,7 +116,7 @@ export function exam04(): Circuit {
 }
 
 export function exam05(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrAlarm(s)
   // SS(A) → FLS 전원,  FLS-a ∥ (SS(M) → PB0 → PB1 ∥ X-a) → X, T
   s.col(3, TOP, [[0, s.a('selector', 'SS')]], s.fls)
@@ -137,7 +137,7 @@ export function exam05(): Circuit {
 }
 
 export function exam06(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrAlarm(s)
   s.col(3, TOP, [[0, s.a('selector', 'SS')]], s.fls)
   s.col(4, j1, [[2, s.a('fls', 'FLS')]], s.relay('X'))
@@ -163,7 +163,7 @@ export function exam06(): Circuit {
 }
 
 export function exam07(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrAlarm(s)
   s.col(3, j1, [], s.fls)
   s.col(4, TOP, [[0, s.a('selector', 'SS')], [2, s.a('fls', 'FLS')]], s.flicker('FR', 4000))
@@ -182,7 +182,7 @@ export function exam07(): Circuit {
 }
 
 export function exam08(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   // EOCR-a → BZ
   s.h(j2, [0, 1])
   s.col(1, j2, [[3, s.a('eocr', 'EOCR')]], s.buzzer)
@@ -209,7 +209,7 @@ export function exam08(): Circuit {
 }
 
 export function exam09(): Circuit {
-  const s = examSheet({ pb0OnTop: false, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: false })
   eocrFlicker(s)
   // X-a ∥ (SS(A) → FLS-a) → MC1
   s.col(4, TOP, [[0, s.a('relay', 'X')]], j2)
@@ -243,7 +243,7 @@ function parallelTop(s: Sheet, first: number, others: [number, Part][]) {
 }
 
 export function exam10(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   for (const [i, n] of [
     [2, '1'],
@@ -262,7 +262,7 @@ export function exam10(): Circuit {
 }
 
 export function exam11(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   for (const [i, n, other] of [
     [2, '1', '2'],
@@ -288,7 +288,7 @@ function wlTimers(s: Sheet, i: number) {
 }
 
 export function exam12(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   // PB1 ∥ X1-a ∥ T2-a → X1,  LS1-a → MC1,  MC1-b → T1
   s.col(2, TOP, [[0, s.a('pb', 'PB1')]], s.relay('X1'))
@@ -315,7 +315,7 @@ export function exam12(): Circuit {
 }
 
 export function exam13(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   // PB1 ∥ X1-a ∥ LS1-a → T2-b → X1,  LS2-a → MC1,  MC1-b → T1
   s.col(2, TOP, [[0, s.a('pb', 'PB1')], [2, s.bc('timer', 'T2')]], s.relay('X1'))
@@ -354,7 +354,7 @@ function withTimer(s: Sheet, i: number, n: string) {
 }
 
 export function exam14(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 10 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   limitRelays(s)
   // PB1 ∥ T1순시-a → X1-a → X2-a → T1-b → MC1, T1  (LS1·LS2 모두 감지)
@@ -374,7 +374,7 @@ export function exam14(): Circuit {
 }
 
 export function exam15(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   limitRelays(s)
   // PB1 → (X1-a ∥ X2-a) ∥ T1순시-a → T1-b → MC1, T1  (LS1·LS2 중 하나 이상)
@@ -396,7 +396,7 @@ export function exam15(): Circuit {
 }
 
 export function exam16(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   s.simple(2, s.a('limit', 'LS1'), s.timer('T1'))
   s.simple(3, s.a('limit', 'LS2'), s.timer('T2'))
@@ -423,7 +423,7 @@ export function exam16(): Circuit {
 }
 
 export function exam17(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 10 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   limitRelays(s)
   // PB1 ∥ T1순시-a → (X1-a → X2-b) ∥ (X1-b → X2-a) → MC1, T1  (LS1·LS2 중 하나만)
@@ -444,7 +444,7 @@ export function exam17(): Circuit {
 }
 
 export function exam18(): Circuit {
-  const s = examSheet({ pb0OnTop: true, lastCol: 11 })
+  const s = examSheet({ pb0OnTop: true })
   eocrLamp(s)
   limitRelays(s)
   // (PB1 → X1-a → X2-b) ∥ T1순시-a → MC1, T1  (LS1 감지·LS2 해제)
