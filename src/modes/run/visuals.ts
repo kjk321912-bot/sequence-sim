@@ -42,6 +42,8 @@ export function visualsOf(circuit: Circuit, r: StepResult, plain = false): Recor
         break
       case 'lamp':
       case 'buzzer':
+        out[c.id] = { energized: !!sol.energized[c.id], ...(sol.dim[c.id] ? { dim: true } : {}) }
+        break
       case 'fls':
         out[c.id] = { energized: !!sol.energized[c.id] }
         break

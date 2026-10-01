@@ -80,6 +80,41 @@ describe('배선', () => {
     expect(new Simulator(S().circuit).last.solution.energized[lamp]).toBe(true)
   })
 
+  it('배선 위에 램프를 겹쳐 놓으면 배선이 끊기고 램프가 끼워져 직렬로 흐리게 켜진다', () => {
+    // P모선 ─ RL ─ 긴 배선 ─ N모선, 긴 배선 위에 GL을 끌어다 놓는다
+    const p = place('busP', 20, 0)
+    const n = place('busN', 20, 20)
+    S().updateComponent(p, { x: 0, y: 0 })
+    S().updateComponent(n, { x: 0, y: 20 })
+    const rl = place('RL', 10, 4)
+    const r = comp(rl)
+    S().addWire([{ x: r.x, y: 0 }, { x: r.x, y: r.y }])
+    S().addWire([{ x: r.x, y: r.y + 3 }, { x: r.x, y: 20 }])
+    const gl = place('GL', 30, 10)
+    const base = S().beginDrag()
+    S().dragComponent(base, gl, r.x, r.y + 8)
+    expect(S().circuit.wires).toHaveLength(3)
+    const sol = new Simulator(S().circuit).last.solution
+    expect(sol.dim[rl]).toBe(true)
+    expect(sol.dim[gl]).toBe(true)
+    expect(sol.seriesLoads).toEqual([])
+
+    // 다시 옆으로 빼면 배선은 원래대로 이어진다 (끌기 시작 회로 기준)
+    S().dragComponent(base, gl, r.x + 5, r.y + 8)
+    expect(S().circuit.wires).toHaveLength(2)
+    expect(new Simulator(S().circuit).last.solution.energized[rl]).toBe(true)
+  })
+
+  it('팔레트에서 배선 위에 바로 놓아도 끼워진다', () => {
+    S().addWire([{ x: 10, y: 0 }, { x: 10, y: 20 }])
+    const lamp = place('RL', 10, 10)
+    const l = comp(lamp)
+    expect(S().circuit.wires.map((w) => w.points)).toEqual([
+      [{ x: 10, y: 0 }, { x: 10, y: l.y }],
+      [{ x: 10, y: l.y + 3 }, { x: 10, y: 20 }],
+    ])
+  })
+
   it('부품을 돌려도 연결된 배선이 따라온다', () => {
     const lamp = place('RL', 10, 10)
     const l = comp(lamp)

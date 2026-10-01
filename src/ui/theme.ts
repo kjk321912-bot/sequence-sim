@@ -37,6 +37,12 @@ export const colors = {
   lampGL: '#34d058',
   lampYL: '#ffd60a',
   lampWL: '#f5f5f5',
+  // 직렬 연결로 흐리게 켜진 램프·부저
+  lampRLDim: '#8a2a24',
+  lampGLDim: '#1f7a37',
+  lampYLDim: '#8f7a12',
+  lampWLDim: '#8a8a8a',
+  buzzerDim: '#8f6c18',
 } as const
 
 export type ColorToken = keyof typeof colors

@@ -80,6 +80,7 @@ function visualKey(r: StepResult): string {
     Object.entries(s.thr).map(([k, t]) => [k, t.tripped]),
     s.blownFuses,
     sol.energized,
+    sol.dim,
     sol.conducting,
     sol.motors,
     sol.segments.map((g) => g.state[0]! + g.dir),

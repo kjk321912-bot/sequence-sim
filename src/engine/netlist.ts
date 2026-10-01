@@ -5,6 +5,8 @@
 // - 배선 꼭짓점이 다른 배선의 선분 중간에 놓이면 그 지점에서 연결된다(T 접속).
 // - 핀이 배선 선분의 "중간"에 놓인 것만으로는 연결되지 않는다.
 //   (세로줄을 따라 그은 배선이 접점 두 단자 위를 지나가며 몰래 단락시키는 것을 막는다)
+//   단, 배선이 핀의 리드선과 직각으로 지나가며 그 부품의 다른 핀은 지나지 않으면 연결된다.
+//   (가로 배선에 램프 위 단자를 갖다 댄 경우: 도면에서 보이는 그대로 T 접속)
 // - 배선끼리 교차만 하고 꼭짓점을 공유하지 않으면 연결되지 않는다.
 // - 모선은 선분 전체가 단자다. 모선 위에 놓인 핀·배선 끝은 모두 모선에 연결된다.
 // - 단선 고장이 심어진 배선은 도통하지 않는다.
@@ -75,8 +77,14 @@ export function buildGraph(circuit: Circuit): Graph {
 
   // 1) 모든 핀과 배선 꼭짓점을 노드로 등록
   const terminals = new Map<string, number>()
+  /** 핀 목록. 리드선은 부품의 세로축 방향이므로 0°·180°면 세로, 90°·270°면 가로 */
+  const pins: { p: Point; i: number; compId: string; vertical: boolean }[] = []
   for (const c of circuit.components) {
-    for (const pin of pinsOf(c)) terminals.set(terminalKey(c.id, pin.name), addPoint(pin))
+    for (const pin of pinsOf(c)) {
+      const i = addPoint(pin)
+      terminals.set(terminalKey(c.id, pin.name), i)
+      pins.push({ p: { x: pin.x, y: pin.y }, i, compId: c.id, vertical: c.rot === 0 || c.rot === 180 })
+    }
   }
   const pinCount = nodePoints.length
   for (const w of wires) for (const p of w.points) addPoint(p)
@@ -92,8 +100,14 @@ export function buildGraph(circuit: Circuit): Graph {
     for (let s = 0; s + 1 < w.points.length; s++) {
       const a = w.points[s] as Point
       const b = w.points[s + 1] as Point
-      const on = cutPoints
-        .filter(({ p }) => onSegment(p, a, b))
+      // 선분과 직각으로 닿은 핀 (같은 부품의 다른 핀까지 지나가면 부품을 가로지르는 것이므로 제외)
+      const vertical = a.x === b.x
+      const touching = pins.filter(({ p, vertical: v }) => v !== vertical && onSegment(p, a, b))
+      const crossed = new Set(touching.map((t) => t.compId).filter((id, k, all) => all.indexOf(id) !== k))
+      const extra = touching.filter(
+        (t, k) => !crossed.has(t.compId) && !cutPoints.some((q) => q.i === t.i) && touching.findIndex((u) => u.i === t.i) === k,
+      )
+      const on = [...cutPoints.filter(({ p }) => onSegment(p, a, b)), ...extra.map(({ p, i }) => ({ p, i }))]
         .sort((u, v) => Math.abs(u.p.x - a.x) + Math.abs(u.p.y - a.y) - (Math.abs(v.p.x - a.x) + Math.abs(v.p.y - a.y)))
       for (let k = 0; k + 1 < on.length; k++) {
         const u = on[k]!

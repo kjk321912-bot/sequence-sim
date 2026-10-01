@@ -45,13 +45,27 @@ describe('발진', () => {
 })
 
 describe('부하 직렬 연결', () => {
-  it('램프 두 개를 직렬로 연결하면 켜지지 않는다 (교재 범위 밖)', () => {
+  it('램프 두 개를 직렬로 연결하면 전압을 나눠 받아 둘 다 흐리게 켜진다', () => {
     const b = controlBoard()
     const [l1, l2] = b.rung(2, TOP, BOTTOM, [(x, y) => b.lamp(x, y, 'RL'), (x, y) => b.lamp(x, y, 'GL')])
-    const sim = new Simulator(b.build())
-    expect(sim.last.solution.energized[l1!.id]).toBe(false)
-    expect(sim.last.solution.energized[l2!.id]).toBe(false)
-    expect(sim.last.solution.seriesLoads).toEqual([l1!.id, l2!.id])
+    const sol = new Simulator(b.build()).last.solution
+    expect(sol.energized[l1!.id]).toBe(false)
+    expect(sol.energized[l2!.id]).toBe(false)
+    expect(sol.dim[l1!.id]).toBe(true)
+    expect(sol.dim[l2!.id]).toBe(true)
+    expect(sol.seriesLoads).toEqual([])
+    // 두 램프 사이 배선까지 전류가 흐르는 것으로 표시
+    expect(sol.segments.length).toBeGreaterThan(0)
+    expect(sol.segments.every((s) => s.state === 'flow')).toBe(true)
+  })
+
+  it('코일과 램프를 직렬로 연결하면 동작하지 않고 경고한다 (코일 전압 부족)', () => {
+    const b = controlBoard()
+    const [x1, l1] = b.rung(2, TOP, BOTTOM, [(x, y) => b.coil(x, y, 'relay', 'X1'), (x, y) => b.lamp(x, y, 'RL')])
+    const sol = new Simulator(b.build()).last.solution
+    expect(sol.energized[x1!.id]).toBe(false)
+    expect(sol.dim[l1!.id]).toBeFalsy()
+    expect(sol.seriesLoads).toEqual([x1!.id, l1!.id])
   })
 
   it('정상 회로와 배선 안 된 부하는 직렬 경고를 내지 않는다', () => {

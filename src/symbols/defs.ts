@@ -49,6 +49,8 @@ export interface SymbolVisual {
   hideFins?: boolean
   /** 코일·부저 여자, 램프 점등 */
   energized?: boolean
+  /** 램프·부저 직렬 연결: 전압을 나눠 받아 흐리게 켜짐 */
+  dim?: boolean
   motor?: MotorRun
   /** 모터 회전 표시 각도(도) */
   motorAngle?: number
@@ -202,15 +204,22 @@ function circleSymbol(
 
 const LAMP_COLOR = { RL: colors.lampRL, GL: colors.lampGL, YL: colors.lampYL, WL: colors.lampWL } as const
 
-function lamp(color: keyof typeof LAMP_COLOR, tag: string, on: boolean): SymbolDef {
+const LAMP_DIM = { RL: colors.lampRLDim, GL: colors.lampGLDim, YL: colors.lampYLDim, WL: colors.lampWLDim } as const
+
+function lamp(color: keyof typeof LAMP_COLOR, tag: string, on: boolean, dim = false): SymbolDef {
   const lit = LAMP_COLOR[color]
   // 소등 상태에서도 무슨 색 램프인지 알 수 있게 테두리를 램프 색으로
-  return on
-    ? circleSymbol(tag, { stroke: lit, fill: lit, glow: lit, textColor: colors.bg })
-    : circleSymbol(tag, { stroke: lit, textColor: lit })
+  if (on) return circleSymbol(tag, { stroke: lit, fill: lit, glow: lit, textColor: colors.bg })
+  if (dim) return circleSymbol(tag, { stroke: lit, fill: LAMP_DIM[color], textColor: lit })
+  return circleSymbol(tag, { stroke: lit, textColor: lit })
 }
 
-function buzzer(tag: string, on: boolean): SymbolDef {
+function buzzer(tag: string, on: boolean, dim = false): SymbolDef {
+  if (dim && !on) {
+    const def = buzzer(tag, true)
+    // 흐리게: 채움색만 어둡게
+    return { ...def, prims: def.prims.map((p) => (p.t === 'line' && p.fill ? { ...p, fill: colors.buzzerDim } : p.t === 'text' ? { ...p, color: colors.warn } : p)) }
+  }
   const color = on ? colors.warn : undefined
   const w = 0.62
   const h = 0.5
@@ -355,9 +364,9 @@ function baseSymbol(c: Component, v: SymbolVisual): SymbolDef {
       })
     }
     case 'lamp':
-      return lamp(c.color, c.tag, !!v.energized)
+      return lamp(c.color, c.tag, !!v.energized, !!v.dim)
     case 'buzzer':
-      return buzzer(c.tag, !!v.energized)
+      return buzzer(c.tag, !!v.energized, !!v.dim)
     case 'mccb':
     case 'mcMain':
     case 'thrHeater':

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import type { Circuit, Component, Point, Rotation } from '../engine'
 import { PALETTE } from '../editor/palette'
 import { componentCenter, findFreeSpot } from '../editor/placement'
-import { bridgeWires, followWires, simplify } from '../editor/wiring'
+import { bridgeWires, followWires, insertIntoWires, simplify } from '../editor/wiring'
 import { showcaseCircuit } from '../examples/showcase'
 
 export interface View {
@@ -104,13 +104,14 @@ export const useEditor = create<EditorStore>((set, get) => {
   /**
    * 부품 하나를 바꾸고(이동·회전·속성) 연결된 배선을 따라오게 한다.
    * 배선 없이 다른 핀·모선에 바로 붙어 있던 핀은 이어 주는 배선을 새로 만든다.
+   * 배선 위에 겹쳐 놓으면 그 배선을 끊고 부품을 끼운다.
    */
   const replaceComp = (circuit: Circuit, before: Component, after: Component): Circuit => {
     const bridges = bridgeWires(circuit, before, after).map((w) => ({ ...w, id: newId('w') }))
     return {
       ...circuit,
       components: circuit.components.map((c) => (c.id === before.id ? after : c)),
-      wires: [...followWires(circuit.wires, before, after), ...bridges],
+      wires: insertIntoWires([...followWires(circuit.wires, before, after), ...bridges], after, () => newId('w')),
     }
   }
 
@@ -142,7 +143,8 @@ export const useEditor = create<EditorStore>((set, get) => {
       const center = componentCenter(draft)
       const pos = findSpot ? findFreeSpot(circuit, draft, at) : { x: Math.round(at.x - center.x), y: Math.round(at.y - center.y) }
       const comp = { ...draft, ...pos }
-      commit({ ...circuit, components: [...circuit.components, comp] }, { selection: comp.id })
+      const wires = insertIntoWires(circuit.wires, comp, () => newId('w'))
+      commit({ ...circuit, components: [...circuit.components, comp], wires }, { selection: comp.id })
       return comp.id
     },
 

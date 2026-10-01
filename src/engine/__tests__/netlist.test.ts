@@ -34,6 +34,33 @@ describe('넷리스트', () => {
     expect(new Simulator(b.build()).last.solution.energized[lamp]).toBe(true)
   })
 
+  it('가로 배선 중간에 램프 단자를 갖다 대면 연결된다 (편집으로 램프 추가)', () => {
+    const b = new CircuitBuilder()
+    b.bus('P', 0, 0, 10)
+    b.bus('N', 0, 12, 10)
+    const old = b.lamp(2, 5, 'RL')
+    b.wire([2, 0], [2, 5])
+    b.wire([2, 2], [8, 2])
+    b.wire([2, 8], [2, 12])
+    // 기존 회로에 램프를 더 달았는데, 위 단자 (5,2)가 가로 배선 중간에 닿기만 한 경우
+    const added = b.lamp(5, 2, 'GL')
+    b.wire([5, 5], [5, 12])
+    const sol = new Simulator(b.build()).last.solution
+    expect(sol.energized[old]).toBe(true)
+    expect(sol.energized[added]).toBe(true)
+  })
+
+  it('3극 부품의 핀들을 가로로 지나가는 배선은 연결하지 않는다 (상간 몰래 단락 방지)', () => {
+    const b = new CircuitBuilder()
+    const mccb = b.add({ kind: 'mccb', x: 2, y: 4, rot: 0, tag: 'MCCB' })
+    b.wire([0, 4], [10, 4])
+    const g = buildGraph(b.build())
+    const l1 = g.terminals.get(terminalKey(mccb, 'L1'))!
+    const l2 = g.terminals.get(terminalKey(mccb, 'L2'))!
+    expect(g.staticNet[l1]).not.toBe(g.staticNet[l2])
+    expect(g.staticNet[l1]).not.toBe(g.staticNet[g.pointIndex.get('0,4')!])
+  })
+
   it('부품을 90° 돌리면 핀이 가로로 놓인다', () => {
     const b = new CircuitBuilder()
     b.add({ kind: 'lamp', x: 5, y: 5, rot: 90, color: 'RL', tag: 'RL' })

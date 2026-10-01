@@ -43,6 +43,8 @@ export interface Solution {
   shortThrough: Record<string, boolean>
   /** 부하(코일·램프·부저) 여자 여부 */
   energized: Record<string, boolean>
+  /** 램프·부저 두 개가 직렬로 연결돼 전압을 나눠 받아 흐리게 켜짐 */
+  dim: Record<string, boolean>
   motors: Record<string, MotorRun>
   segments: WireSegment[]
   /** 단락된 그룹마다 섞인 전위 목록 */
@@ -178,8 +180,30 @@ export function solve(circuit: Circuit, graph: Graph, closedOf: (c: Component) =
       floating.get(g)!.push({ id: c.id, outer: po })
     }
   }
+  // 단, 램프·부저 두 개만 직렬이면 실제처럼 전압을 나눠 받아 흐리게 켜진다(dim).
+  // 코일이 섞이면 전압이 모자라 붙지 않으므로 지금처럼 동작하지 않음 + 경고.
+  const kindOf = new Map(circuit.components.map((c) => [c.id, c.kind]))
+  const dimmable = (id: string) => kindOf.get(id) === 'lamp' || kindOf.get(id) === 'buzzer'
   const series = new Set<string>()
-  for (const loads of floating.values()) {
+  const dim: Record<string, boolean> = {}
+  /** 흐리게 켜진 직렬 부하 사이의 가운데 그룹: 전류 경로 표시용 [P 쪽 안쪽 단자, N 쪽 안쪽 단자] */
+  const dimLinks: { from: number; to: number; potential: Phase }[] = []
+  for (const [g, loads] of floating) {
+    const pair = loads.length === 2 && isPowered(loads[0]!.outer, loads[1]!.outer) ? loads : null
+    if (pair && pair.every((l) => dimmable(l.id))) {
+      const ends = pair.map((l) => {
+        const c = circuit.components.find((x) => x.id === l.id)!
+        const a = node(c.id, '1')!
+        const b = node(c.id, '2')!
+        return group[a] === g ? { inner: a, outer: b, po: l.outer } : { inner: b, outer: a, po: l.outer }
+      })
+      // 전원 쪽(P, 또는 상 순서가 앞선 쪽)에서 들어와 반대쪽으로 나간다
+      ends.sort((u, v) => (u.po === 'P' ? -1 : v.po === 'P' ? 1 : String(u.po) < String(v.po) ? -1 : 1))
+      for (const l of pair) dim[l.id] = true
+      for (const e of ends) sinkNodes.push(e.outer)
+      dimLinks.push({ from: ends[0]!.inner, to: ends[1]!.inner, potential: ends[0]!.po as Phase })
+      continue
+    }
     for (const x of loads) {
       if (loads.some((y) => y.id !== x.id && isPowered(x.outer, y.outer))) series.add(x.id)
     }
@@ -220,6 +244,15 @@ export function solve(circuit: Circuit, graph: Graph, closedOf: (c: Component) =
       for (const s of sinks) flowEdges.push([dst, s])
     }
     virtual.push({ edge: flowEdges.length, src, potential: p, invert: p === 'N' })
+    flowEdges.push([src, dst])
+  }
+
+  // 흐리게 켜진 직렬 부하 사이: P 쪽 부하에서 나와 N 쪽 부하로 들어가는 경로
+  for (const l of dimLinks) {
+    const src = nodeCount++
+    const dst = nodeCount++
+    flowEdges.push([src, l.from], [dst, l.to])
+    virtual.push({ edge: flowEdges.length, src, potential: l.potential, invert: false })
     flowEdges.push([src, dst])
   }
 
@@ -286,5 +319,5 @@ export function solve(circuit: Circuit, graph: Graph, closedOf: (c: Component) =
     if (st === 'short') shortThrough[pe.compId] = true
   })
 
-  return { nodePotential, group, closed, conducting, shortThrough, energized, motors, segments, shorts, seriesLoads }
+  return { nodePotential, group, closed, conducting, shortThrough, energized, dim, motors, segments, shorts, seriesLoads }
 }

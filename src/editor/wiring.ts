@@ -178,6 +178,40 @@ export function bridgeWires(circuit: Circuit, before: Component, after: Componen
   return bridges
 }
 
+/**
+ * 2단자 부품을 배선 위에 겹쳐 놓으면 그 배선을 두 단자 사이에서 끊어 부품을 끼운다.
+ * (끊지 않으면 배선이 두 단자 위를 지나가기만 해서 부품을 건너뛴다 — netlist 연결 규칙)
+ * 배선이 부품 축을 따라 두 단자를 모두 지나가고, 적어도 한 단자는 선분 중간에 있을 때만 끊는다.
+ * 앞쪽 조각은 원래 id를, 뒤쪽 조각은 newId()를 쓴다.
+ */
+export function insertIntoWires(wires: Wire[], comp: Component, newId: () => string): Wire[] {
+  const pins = pinsOf(comp)
+  if (pins.length !== 2 || comp.kind === 'terminalBlock') return wires
+  const p1: Point = pins[0]!
+  const p2: Point = pins[1]!
+  const out: Wire[] = []
+  for (const w of wires) {
+    const i = w.points.findIndex((a, k) => {
+      const b = w.points[k + 1]
+      if (!b || !onSegment(p1, a, b) || !onSegment(p2, a, b)) return false
+      const interior = (p: Point) => !same(p, a) && !same(p, b)
+      return interior(p1) || interior(p2)
+    })
+    if (i < 0) {
+      out.push(w)
+      continue
+    }
+    const a = w.points[i]!
+    const dist = (p: Point) => Math.abs(p.x - a.x) + Math.abs(p.y - a.y)
+    const [near, far] = dist(p1) <= dist(p2) ? [p1, p2] : [p2, p1]
+    const head = simplify([...w.points.slice(0, i + 1), near])
+    const tail = simplify([far, ...w.points.slice(i + 1)])
+    if (head.length >= 2) out.push({ ...w, points: head })
+    if (tail.length >= 2) out.push({ id: head.length >= 2 ? newId() : w.id, points: tail })
+  }
+  return out
+}
+
 /** 마지막 점을 to로 옮긴다. 원래 마지막 구간의 방향(세로/가로)을 유지하도록 꺾인 점을 넣는다 */
 function moveEnd(pts: Point[], to: Point): Point[] {
   if (pts.length < 2) return [to]
