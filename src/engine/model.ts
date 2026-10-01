@@ -211,6 +211,8 @@ export interface Circuit {
   faults?: Fault[]
   /** 과제 모드에서 채점할 과제 */
   task?: Task
+  /** 고장진단 문제 설명: 제목과 정상 동작(학생이 증상과 비교할 기준) */
+  faultInfo?: { title: string; description: string }
 }
 
 export function emptyCircuit(name = '새 회로'): Circuit {

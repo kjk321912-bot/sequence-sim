@@ -24,3 +24,14 @@ export {
   type CheckResult,
   type CheckItem,
 } from './task'
+export { probeNode, measureVoltage, measureResistance, isProbePoint, type VoltReading, type OhmReading, type OhmResult } from './tester'
+export {
+  FAULT_KIND_TEXT,
+  componentLabel,
+  wireLabel,
+  faultLabel,
+  faultKindsFor,
+  makeFault,
+  matchFault,
+  randomFaults,
+} from './diagnosis'

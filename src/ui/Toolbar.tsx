@@ -12,7 +12,7 @@ const MODES = [
   { key: 'edit', label: '편집', ready: true },
   { key: 'run', label: '실행', ready: true },
   { key: 'task', label: '과제', ready: true },
-  { key: 'fault', label: '고장진단', ready: false },
+  { key: 'fault', label: '고장진단', ready: true },
 ] as const
 
 /** 회로 전체가 화면에 들어오게 */

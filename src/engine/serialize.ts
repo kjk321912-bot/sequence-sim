@@ -91,6 +91,9 @@ export function parseCircuit(text: string): ParseResult {
       wires: data.wires as unknown as Circuit['wires'],
       ...(Array.isArray(data.faults) ? { faults: data.faults as Circuit['faults'] } : {}),
       ...(task ? { task } : {}),
+      ...(isObj(data.faultInfo) && typeof data.faultInfo.title === 'string' && typeof data.faultInfo.description === 'string'
+        ? { faultInfo: { title: data.faultInfo.title, description: data.faultInfo.description } }
+        : {}),
     },
   }
 }

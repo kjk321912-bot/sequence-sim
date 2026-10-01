@@ -3,6 +3,7 @@ import './App.css'
 import { EditorCanvas } from './editor/EditorCanvas'
 import { RunBanner, RunControls } from './modes/run/RunControls'
 import { TaskPanel } from './modes/task/TaskPanel'
+import { FaultPanel } from './modes/fault/FaultPanel'
 import { useEditor } from './store/editorStore'
 import { isSimMode, useSim } from './store/simStore'
 import { useTask } from './store/taskStore'
@@ -15,6 +16,7 @@ export default function App() {
   useKeyboardShortcuts()
   const running = useSim((s) => isSimMode(s.mode))
   const taskMode = useSim((s) => s.mode === 'task')
+  const faultMode = useSim((s) => s.mode === 'fault')
   const playing = useTask((s) => s.phase === 'playing')
   return (
     <div className="app">
@@ -22,6 +24,7 @@ export default function App() {
       <main className="workspace">
         {!running && <Palette />}
         {taskMode && <TaskPanel />}
+        {faultMode && <FaultPanel />}
         <div className="canvas-area">
           <EditorCanvas />
           {running && !playing && <RunControls />}

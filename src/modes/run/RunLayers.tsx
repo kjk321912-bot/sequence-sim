@@ -22,8 +22,21 @@ const WIRE_COLOR: Record<WireState, string> = {
 const px = (v: number) => v * GRID
 
 /** 배선: 눌러서 고를 수 있는 바탕선 + 상태색 선분 + 접속점 */
-export function RunWires({ circuit, result, junctions }: { circuit: Circuit; result: StepResult; junctions: { x: number; y: number }[] }) {
-  const states = useMemo(() => pointStates(result), [result])
+/**
+ * plain이면 배선 상태색을 그리지 않는다 (고장진단: 전류가 끊기는 곳이 보이면 고장 위치가 드러나므로)
+ */
+export function RunWires({
+  circuit,
+  result,
+  junctions,
+  plain = false,
+}: {
+  circuit: Circuit
+  result: StepResult
+  junctions: { x: number; y: number }[]
+  plain?: boolean
+}) {
+  const states = useMemo(() => (plain ? new Map<string, WireState>() : pointStates(result)), [result, plain])
   return (
     <>
       {circuit.wires.map((w) => (
@@ -39,7 +52,7 @@ export function RunWires({ circuit, result, junctions }: { circuit: Circuit; res
           lineJoin="round"
         />
       ))}
-      {result.solution.segments
+      {(plain ? [] : result.solution.segments)
         .filter((g) => g.state !== 'dead')
         .map((g, i) => (
           <Line
@@ -99,15 +112,15 @@ const FLOW_SPEED = 0.05
 /** 전동기 날개 회전 속도 (도/ms, ×1 기준) */
 const ROTOR_SPEED = 0.2
 
-export function AnimLayer({ circuit, result }: { circuit: Circuit; result: StepResult }) {
+export function AnimLayer({ circuit, result, plain = false }: { circuit: Circuit; result: StepResult; plain?: boolean }) {
   const layerRef = useRef<Konva.Layer>(null)
   // 전류 방향(P→N)으로 점이 흘러가도록 선분 방향을 맞춘다
   const flows = useMemo(
     () =>
       result.solution.segments
-        .filter((g) => g.state === 'flow' && g.dir !== 0)
+        .filter((g) => !plain && g.state === 'flow' && g.dir !== 0)
         .map((g) => (g.dir === 1 ? [g.from, g.to] : [g.to, g.from])),
-    [result],
+    [result, plain],
   )
   const shorts = useMemo(() => result.solution.segments.filter((g) => g.state === 'short'), [result])
   const rotors = useMemo(() => rotorsOf(circuit, result), [circuit, result])

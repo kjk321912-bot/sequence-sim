@@ -8,7 +8,7 @@ import { buildGraph, initialState, missingPower, operate, step, type Action, typ
 import { isInputAction, powerHintText } from '../modes/run/operate'
 import { useEditor } from './editorStore'
 
-export type Mode = 'edit' | 'run' | 'task'
+export type Mode = 'edit' | 'run' | 'task' | 'fault'
 export type Speed = 1 | 5
 /** 회로가 돌아가는 모드 (실행·과제) */
 export const isSimMode = (m: Mode) => m !== 'edit'

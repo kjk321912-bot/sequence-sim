@@ -16,6 +16,7 @@ import { useEffect, type RefObject } from 'react'
 import type { Action, Circuit, Point } from '../engine'
 import { operationOf } from '../modes/run/operate'
 import { useEditor } from '../store/editorStore'
+import { useFault } from '../store/faultStore'
 import { isSimMode, liveResult, useSim } from '../store/simStore'
 import { GRID } from '../ui/theme'
 import { clampScale, screenToGrid, zoomAt } from './viewMath'
@@ -107,7 +108,9 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
         const comp = store.circuit.components.find((c) => c.id === hitComp)
         const live = liveResult()
         // 과제 채점 재생 중에는 손으로 조작하지 않는다
-        const op = comp && live && !useSim.getState().driven ? operationOf(comp, live.state) : null
+        // 고장진단에서 테스터·지목 도구를 쓰는 중이면 톡 치기는 측정·지목이다
+        const measuring = useSim.getState().mode === 'fault' && useFault.getState().tool !== 'operate'
+        const op = comp && live && !useSim.getState().driven && !measuring ? operationOf(comp, live.state) : null
         if (op?.kind === 'momentary') {
           pressed.set(e.pointerId, op.tag)
           useSim.getState().act({ type: 'press', tag: op.tag }, comp!.id)
@@ -227,7 +230,9 @@ export function useCanvasGestures(container: RefObject<HTMLDivElement | null>, s
         if (isSimMode(useSim.getState().mode)) {
           // 실행 모드의 톡 치기는 조작. 속성 창은 닫는다
           store.select(null)
-          if (mode.tap) {
+          if (useSim.getState().mode === 'fault' && useFault.getState().tool !== 'operate') {
+            useFault.getState().pick(screenToGrid(store.view, mode.sx, mode.sy), mode.hit)
+          } else if (mode.tap) {
             useSim.getState().act(mode.tap, mode.hit.compId)
             navigator.vibrate?.(10)
           }

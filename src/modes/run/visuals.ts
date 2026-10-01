@@ -25,13 +25,14 @@ function coilKey(c: Component): string | null {
 }
 
 /** 부품 id → 기호 모양 상태 */
-export function visualsOf(circuit: Circuit, r: StepResult): Record<string, SymbolVisual> {
+/** plain이면 접점·차단기 등의 "전류가 흐름" 표시를 빼고 모양(열림·닫힘)만 (고장진단) */
+export function visualsOf(circuit: Circuit, r: StepResult, plain = false): Record<string, SymbolVisual> {
   const { state: s, solution: sol } = r
   const active = contactActivity(circuit, s)
   const osc = new Set(r.oscillating)
   const out: Record<string, SymbolVisual> = {}
   for (const c of circuit.components) {
-    const conducting = !!sol.conducting[c.id]
+    const conducting = !plain && !!sol.conducting[c.id]
     switch (c.kind) {
       case 'contact':
         out[c.id] = { active: !!active[c.id], conducting }

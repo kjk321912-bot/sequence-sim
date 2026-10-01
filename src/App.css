@@ -937,3 +937,79 @@ button:disabled {
   height: auto;
   line-height: 1.5;
 }
+
+/* ── 고장진단 탭 ───────────────────── */
+.fault-tools {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 8px;
+}
+
+.fault-tools button {
+  min-width: 0;
+  padding: 0 4px;
+  font-size: 15px;
+}
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 8px;
+  padding: 12px 14px;
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.meter.refused {
+  border-color: var(--warn);
+}
+
+.meter-mode {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.meter strong {
+  color: var(--accent);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter.refused strong {
+  color: var(--warn);
+  font-size: 16px;
+}
+
+.fault-choose {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.fault-found {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.fault-found li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  color: var(--wire-flow);
+}
+
+.task-desc.teacher {
+  margin-top: 18px;
+}
+
+.task-desc.teacher .fault-found li {
+  color: var(--text);
+}

@@ -5,6 +5,7 @@ import { Circle, Layer, Line, Shape, Stage } from 'react-konva'
 import { buildGraph, pinsOf, type Circuit, type Point } from '../engine'
 import { AnimLayer, RunLabels, RunWires } from '../modes/run/RunLayers'
 import { TaskMarks } from '../modes/task/TaskMarks'
+import { FaultMarks } from '../modes/fault/FaultMarks'
 import { visualsOf } from '../modes/run/visuals'
 import { useEditor, type View } from '../store/editorStore'
 import { isSimMode, useSim } from '../store/simStore'
@@ -24,10 +25,11 @@ export function EditorCanvas() {
   const draftWire = useEditor((s) => s.draftWire)
   const running = useSim((s) => isSimMode(s.mode))
   const taskMode = useSim((s) => s.mode === 'task')
+  const faultMode = useSim((s) => s.mode === 'fault')
   const result = useSim((s) => s.result)
   const run = running && result ? result : null
   const wiring = !run && (tool === 'wire' || !!draftWire)
-  const visuals = useMemo(() => (run ? visualsOf(circuit, run) : null), [circuit, run])
+  const visuals = useMemo(() => (run ? visualsOf(circuit, run, faultMode) : null), [circuit, run, faultMode])
   const junctions = useMemo(() => junctionPoints(circuit), [circuit])
 
   // 캔버스 크기 추적
@@ -73,7 +75,7 @@ export function EditorCanvas() {
           </Layer>
           <Layer>
             {run ? (
-              <RunWires circuit={circuit} result={run} junctions={junctions} />
+              <RunWires circuit={circuit} result={run} junctions={junctions} plain={faultMode} />
             ) : (
               <Wires circuit={circuit} selection={selection} junctions={junctions} />
             )}
@@ -88,8 +90,9 @@ export function EditorCanvas() {
               <Layer listening={false}>
                 <RunLabels circuit={circuit} result={run} />
               </Layer>
-              <AnimLayer circuit={circuit} result={run} />
+              <AnimLayer circuit={circuit} result={run} plain={faultMode} />
               {taskMode && <TaskMarks circuit={circuit} />}
+              {faultMode && <FaultMarks circuit={circuit} />}
             </>
           ) : (
             <Layer listening={false}>
